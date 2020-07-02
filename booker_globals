@@ -1,0 +1,12 @@
+<?php
+
+global 
+ $number_of_slots_per_hour,
+ $con,
+ $page_title,
+ $logging,
+ $earliest_working_hour,
+ $latest_working_hour,
+ $day_availability_array,
+ $slot_availability_array;
+
