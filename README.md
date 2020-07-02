@@ -1,5 +1,7 @@
 # barbershop
+
 html/php barbershop booking and admin system
+
 This is a web-based system to allow bookers to make reservation against an on-line appointment book. It includes a supporting configuration page that allows the shop-management to specify staff-working patterns and to block out bank holidays etc. It expects online bookings to be paid for using Paypal, though the support page allows the shop to take unpaid bookings from telephone enquirers. The software is designed to work from mobile phones as well as larger-screen devices. It requires a Mysql database
 
 The code as presented here would need some configuration of elements to accomodate local setup - eg Paypal business account and email engine account. These elements are identified in the code by a ***CONFIG REQUIRED** tag.
