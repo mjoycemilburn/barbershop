@@ -1,0 +1,31 @@
+CREATE TABLE `ecommerce_bank_holidays` (
+  `bank_holiday_year` int(4) NOT NULL,
+  `bank_holiday_month` int(2) NOT NULL,
+  `bank_holiday_day` int(2) NOT NULL,
+  PRIMARY KEY (`bank_holiday_year`,`bank_holiday_month`,`bank_holiday_day`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+CREATE TABLE `ecommerce_reservations` (
+  `reservation_number` int(10) NOT NULL AUTO_INCREMENT,
+  `reservation_date` date NOT NULL,
+  `reservation_slot` int(2) NOT NULL,
+  `reservation_status` char(1) DEFAULT NULL,
+  `reserver_id` varchar(45) DEFAULT NULL,
+  `reservation_type` varchar(10) DEFAULT NULL,
+  `reservation_time_stamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`reservation_number`),
+  KEY `SECONDARY` (`reservation_date`,`reservation_slot`),
+  KEY `TERTIARY` (`reservation_status`)
+) ENGINE=InnoDB AUTO_INCREMENT=69 DEFAULT CHARSET=latin1;
+CREATE TABLE `ecommerce_staff_holidays` (
+  `staff_holiday_year` int(4) NOT NULL,
+  `staff_holiday_month` int(2) NOT NULL,
+  `staff_holiday_day` int(2) NOT NULL,
+  `chair_number` int(1) NOT NULL,
+  PRIMARY KEY (`staff_holiday_year`,`staff_holiday_month`,`staff_holiday_day`,`chair_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+CREATE TABLE `ecommerce_work_patterns` (
+  `chair_number` int(1) NOT NULL,
+  `chair_owner` varchar(20) DEFAULT NULL,
+  `pattern_json` json DEFAULT NULL,
+  PRIMARY KEY (`chair_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
