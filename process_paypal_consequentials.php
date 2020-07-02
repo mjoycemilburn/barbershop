@@ -78,7 +78,7 @@ $message = "Thank you for your reservation. We look forward to seeing you at " .
         ". Your booking reference is " . $reservation_number;
 
 try {
-    $client = new PostmarkClient("f7c9f92f-89d5-4fc3-91c3-4ea6f8e2ecb1");
+    $client = new PostmarkClient("*CONFIG REQUIRED");
     $sendResult = $client->sendEmail(
             "*CONFIG REQUIRED", $reserver_id, "Your reservation at O'Neils ", $message);
 } catch (PostmarkException $ex) {
