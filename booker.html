@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Ecommerce prototype booker page</title>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!--    The above 3 meta tags *must* come first in the head; any other head content must come *after* these 
+                as per https://getbootstrap.com/docs/3.3/getting-started/ 17/5/2020 -->
+        <meta name="description" content="Item descriptions">
+
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <!-- jQuery library -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+        <style>
+
+            /* styles for management button header */
+
+            /* unvisited link */
+            a:link {
+                color: black;
+            }
+
+            /* visited link */
+            a:visited {
+                color: black;
+            }
+
+            .launchpadlink {
+                max-width: 6em;
+                padding: .5em;
+                border: 1px solid black;
+                border-radius: .5em;
+                padding: .5em;
+                display: inline-block;
+                text-decoration: none !important;
+                margin: 1em auto 1em auto;
+            }        
+
+            .view {
+                background-color: LAVENDER;
+            }
+
+            .amend {
+                background-color: MEDIUMAQUAMARINE;
+            }
+
+            .configure {
+                background-color: WHEAT;
+            }
+
+
+        </style>
+
+    </head>
+    <body>
+
+        <form id = "dummyform"> </form>
+
+        <div class = 'container-fluid' style = 'text-align: left;'>
+
+            <!-- The use of "row" class below is important - it stop bootstrap adding padding to
+            column cells -->
+
+            <div class="row">
+
+                <!-- only large devices get the flanking columns -->
+                <div class= "col-md-3">
+                </div>
+
+                <!-- smaller devices occupy the full width of the device -->
+                <div class = "col-md-6 col-xs-12">
+
+                    <!------------------ Header for management access --------------->
+
+                    <div id= "management" style="max-width: 100%; display: none; margin-top: 1vh;">
+
+                        <table style="width: 100%; text-align: center; border: 1px solid black; padding: 1.5vh; border-collapse: separate; background: linen;">
+
+                            <tr>
+                                <th style="max-width: 35%;"></th>
+                                <th style="max-width: 30%;"></th>
+                                <th style="max-width: 35%;"></th>
+                            </tr>   
+
+                            <tr>
+                                <td  id = "telephonebutton">
+                                    <a id = "telephonebuttonanchor" class="launchpadlink amend" title="Take telephone booking">Take Tel Booking</a>
+                                </td>
+                                <td id = "viewerbutton">
+                                    <a id = "viewerbuttonanchor" class="launchpadlink view" title="View/Update booking details">Display Bookings</a>
+                                </td>
+                                <td  id = "changebutton">
+                                    <a id = "changebuttonanchor" class="launchpadlink amend" title="Change booking to another date">Change Booking</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td  id = "bankholidaybutton">
+                                    <a id = "bankholidaybuttonanchor" class="launchpadlink configure" title="Set bank holidays">Set Bank Holidays</a>
+                                </td>
+                                <td  id = "staffholidaybutton">
+                                    <a id = "staffholidaybuttonanchor" class="launchpadlink configure" title="Set staff holidays">Set Staff Holidays</a>
+                                </td>
+                                <td  id = "patternbutton">
+                                    <a id = "patternbuttonanchor" class="launchpadlink configure" title="Set Work Patterns">Set Work Patterns</a>
+                                </td>
+                            </tr>
+
+                        </table>
+                    </div>
+
+                    <!------------------ Header for email booker access --------------->                       
+
+                    <div id = "booker" style="display: none; width: 100%; border: 2px solid black; margin-top: 1em; text-align: center;">
+                        <img style = "margin : 1em; max-width: 90%;" src = "img/barber.jpg?ver=1.1">
+                    </div>
+
+                    <div style="width: 85%; padding-top: 1em; margin-left: auto; margin-right: auto; text-align: center;">
+
+                        <iframe id="remember" name="remember" class="hidden"></iframe> <!-- see notes on myEnterFunction() -->
+
+                        <div id = "emaildisplay" style="display: none; padding: 1em; font-weight: bold;"> 
+                            <p>Enter a contact email address in the box below, select a free appointment slot and then 
+                                confirm your reservation.</p>
+                            <!-- see notes in displayDay for special autocomplete consideration -->
+                            <form id="emailform" target = "remember" autocomplete = "on"> <!-- only want autocomplete on email addresses
+                                <label for="emailaddress">Email : </label> <!-- need some sort of label to identify the field to users because can't use placeholder - it knocks autocomlete out -->
+                                <input id="emailaddress" name="emailaddress" style = "height: 3em; text-align: center; font-weight: bold; background: aliceblue; margin-top: 1em;" 
+                                       maxlength="40" size="30"
+                                       onclick="emailaddresserror.style.display = 'none';">
+                            </form>
+                            <p id = "emailaddresserror" style = "display: none; color: red;">Oops - please enter a valid email address</p>
+                        </div>
+
+                        <div id = "telephonedisplay" style="display: none; padding: 1em; font-weight: bold;"> 
+                            <p>Enter the booker's telephone number in the box below, select a free appointment slot and then 
+                                click it to confirm the reservation.</p>
+
+                            <form target = "remember"> 
+                                <label for="telephonenumber">Telephone : </label> <!-- pattern should make mobile phone display numeric pad -->
+                                <input id="telephonenumber" type="text" name="telephonenumber" pattern="\d*" 
+                                       style = "height: 3em; text-align: center; font-weight: bold; background: aliceblue; margin-top: 1em;" 
+                                       maxlength="40" size="15"
+                                       onclick="telephonenumbererror.style.display = 'none';">
+                            </form>
+                            <p id = "telephonenumbererror" style = "display: none; color: red;">Oops - please enter a valid telephone number - numbers and spaces only</p>
+                        </div> 
+
+                        <div id = "changedisplay" style="display: none; padding: 1em; font-weight: bold;"> 
+                            <p>Enter the reference number for the booker's current reservation in the box below, select a free appointment slot and then 
+                                click it to confirm the reservation.</p>
+                            <form target = "remember"> <!-- return false suppresses the natural action of form when return is pressed -->
+                                <label for="changenumber">Reference Number : </label> 
+                                <input id="changenumber" type="text" name="changenumber"  pattern="\d*" 
+                                       style = "height: 3em; text-align: center; font-weight: bold; background: aliceblue; margin-top: 1em;" 
+                                       maxlength="40" size="10"
+                                       onclick="changenumbererror.style.display = 'none';">
+                            </form>
+                            <p id = "changenumbererror" style = "display: none; color: red;">Oops - no reservation for this number</p>
+                        </div>                         
+
+                        <div id = "viewerdisplay" style="display: none; padding: 1em; font-weight: bold;"> 
+                            <p>Select the date/time of the reservation and then click to view details.</p>
+                        </div> 
+                    </div>
+
+                    <div id = "reservationdisplay" style = "display: block; margin-top: 1em; margin-left: auto; margin-right: auto; text-align: center;">
+
+                        <button id = "retardmonth" style="display: none; margin-left: auto; margin-right: auto; margin-bottom: 1em;" onclick = "retardMonthDisplay();"><img src = "img/caret-top.svg"></button>                         
+
+                        <div id = "monthdiv" style="display: block;" onmouseenter="myEnterFunction()">   <!-- see notes on myEnterFunction() -->
+                        </div>
+
+                        <div id = "daydiv" style="display: none;">
+                        </div>
+
+                        <div id="paypalconfirmationmessage"  style="display: none">
+                            <p>Please confirm your reservation for
+                                <span id = "paypalconfirmationmessagedatetime"></span>
+                                with a Paypal payment.
+                            </p>
+                            <div id = "testpaypalconfirmbutton" style="margin-top: 1em; margin-left: auto; margin-right: auto;">
+                                <strong>Adult Haircut<br>*CONFIG REQUIRED0<br></strong>
+                                <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'>
+                                    <input type = 'hidden' name = 'business' value = *CONFIG REQUIRED'>
+                                    <input type = 'hidden' name = 'notify_url' value = '*CONFIG REQUIRED/booker/listener_sandbox.php'>
+                                    <input type = 'hidden' name = 'cmd' value = '_xclick'>
+                                    <input type = 'hidden' name = 'item_name' value = 'Booker Items'>
+                                    <input type = 'hidden' name = 'amount' value = "9.50">
+                                    <input type = 'hidden' name = 'currency_code' value = 'GBP'>
+                                    <input id = "papypalbookeremail" type = "hidden" NAME="email">
+                                    <input id = "paypalcustomvariable" type = 'hidden' name = 'custom'>
+                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = '*CONFIG REQUIRED/booker/booker.html?mode=paypalreturn'>
+                                    <input type = 'image' src = 'https://www.paypalobjects.com/webstatic/en_US/i/buttons/pp-acceptance-large.png' alt = 'PayPal Acceptance' border = '0' name = 'submit'>
+                                </form>
+
+                            </div>                          
+                            <button id = "paypalcancelbutton" style="margin-top: 2em; margin-bottom: 1em; margin-left: auto; margin-right: auto;" onclick = "cancelSlot();">Cancel</button> <!-- onclick is built by bookSLot -->
+                        </div>                      
+
+                        <div id = "bankholidaydisplay1" style="display: none; padding: 1em; font-weight: bold;">
+                            <span id = "bankholidaydisplay1content"></span>
+                        </div>  
+                        <div id = "bankholidaydisplay2" style="display: none; padding: 1em; font-weight: bold;"> <!-- this is the heading bits that gets a blue box -->
+                            <button id = "retardbankholidaymonth" style="display: none; margin-left: auto; margin-right: auto; margin-bottom: 1em;" onclick = "retardMonthDisplay();"><img src = "img/caret-top.svg"></button>                         
+                            <p id = "bankholidaydisplay2content"></p>
+                        </div> 
+
+                        <div id = "staffholidaydisplay1" style="display: none; padding: 1em; font-weight: bold;">
+                            <span id = "staffholidaydisplay1content"></span>
+                        </div>  
+                        <div id = "staffholidaydisplay2" style="display: none; padding: 1em; font-weight: bold;"> <!-- this is the heading bits that gets a blue box -->
+                            <button id = "retardstaffholidaymonth" style="display: none; margin-left: auto; margin-right: auto; margin-bottom: 1em;" onclick = "retardMonthDisplay();"><img src = "img/caret-top.svg"></button>                         
+                            <p id = "staffholidaydisplay2content"></p>
+                        </div>                         
+
+                        <div id = "patterndisplay1" style="display: none; padding: 1em; font-weight: bold;"> <!-- this is the heading bits that gets a blue box -->
+                            <span id = "patterndisplay1content"></span>
+                        </div> 
+                        <div id = "patterndisplay2" style="display: none;"> // this is the table bit
+                            <span id = "patterndisplay2content"></span>
+                        </div>                       
+
+                        <div id = "reservationdetailsdisplay" 
+                             style = "display: none; border: 1px solid black; width: 90%;  margin-left: -45%;
+                             position: absolute; top: 19vw; left: 50%;
+                             background: gainsboro; z-index: 10;" 
+                             onclick = "reservationdetailsdisplay.style.display = 'none';">
+                            <span id = "reservationdetails"></span>
+                        </div>
+
+                        <div id = "telephonecompletiondisplay" style = "display: none;">
+                            <p>Thank you - the reservation is confirmed for <span id="telephonecompletiondisplaydate"></span>. The reference code is <strong><span id="telephonecompletiondisplayreference"></span></strong></p>
+                            <button style="margin-top: 2em; margin-left: auto; margin-right: auto;" onclick = "window.location.assign('booker.html?mode=telephone');">Reload</button>
+                        </div>
+
+                        <div id = "changecompletiondisplay" style = "display: none;">
+                            <p>Thank you - the reservation is confirmed for <span id="changecompletiondisplaydate"></span>. The reference code is <strong><span id="changecompletiondisplayreference"></span></strong></p>
+                            <button style="margin-top: 2em; margin-left: auto; margin-right: auto;" onclick = "window.location.assign('booker.html?mode=telephone');">Reload</button>
+                        </div>                        
+
+                        <div id = "paypalreturndisplay" style = "display: none;">
+                            <p>Thank you for your payment. Please check your email for confirmation of your booking and its
+                                <br><strong>reference code : <span id="paypalreturndisplayreference"></span></strong></p>
+                            <button style="margin-top: 2em; margin-left: auto; margin-right: auto;" onclick = "window.location.assign('booker.html');">Reload</button>
+
+                        </div>
+                    </div>
+                </div>
+                <div class= "col-md-3">
+                </div>
+            </div>
+        </div>
+
+        <script>
+
+
+            function myEnterFunction() {
+
+                // The email entry form has autocommit set to make things easy for regular bookers, but the form doesn't
+                // have a submit button and the form will onlyh save to autocommit storage if it is submitted. We get round
+                // this by giving the monthdisplay div an onmouseenter function to myEnterFunction() where we can submit
+                // it dynamically. However initial trials revealed that the natural action of submit() is to reinitialise
+                // the form (so we lose the email address. The answer was to target the form at a hidden iform, see
+                // https://stackoverflow.com/questions/15462991/trigger-autocomplete-without-submitting-a-form#:~:text=Instead%20of%20using%20iframe%2C%20you,autocomplete%20will%20store%20the%20values.&text=You%20can%20also%20bind%20persistence,on%20the%20your%20application%20requirement.
+
+                document.getElementById("emailform").submit();
+            }
+
+            var form = document.forms.namedItem("dummyform");
+            var monthdiv = document.getElementById('monthdiv');
+            function displayMonth(year, month) {
+
+                // Display appointment-status for a given year (yyyy) and month (01 - 12)
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_calendar_month_display");
+                oData.append("year", year);
+                oData.append("month", month);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            monthdiv.innerHTML = response;
+                            daydiv.style.display = "none";
+                            paypalconfirmationmessage.style.display = "none";
+                            monthdiv.style.display = "block";
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var bankholidaydisplaycontent = document.getElementById('bankholidaydisplaycontent');
+            function buildBankHolidayDisplay(year, month) {
+
+                // Display days that are unavailable as bank holidays
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_bank_holiday_table_for_month_display");
+                oData.append("year", year);
+                oData.append("month", month);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+
+                            // deal with the 2 returns
+
+                            var xmlDoc = oReq.responseXML;
+                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                            JSONString = prepareStringforJSONParse(JSONString);
+                            var JSONObject = JSON.parse(JSONString);
+                            bankholidaydisplay1.innerHTML = JSONObject.return1;
+                            bankholidaydisplay2content.innerHTML = JSONObject.return2;
+                            management.style.display = "block";
+                            bankholidaydisplay1.style.display = "block";
+                            bankholidaydisplay2.style.display = "block";
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function toggleBankHoliday(year, month, day) {
+
+                // toggle the setting on the specified day
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "toggle_bank_holiday");
+                oData.append("bank_holiday_year", year);
+                oData.append("bank_holiday_month", month);
+                oData.append("bank_holiday_day", day);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            // refresh the month display
+                            buildBankHolidayDisplay(year, month);
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var staffholidaydisplaycontent = document.getElementById('staffholidaydisplaycontent');
+            function buildStaffHolidayDisplay(year, month, chairNumber) {
+
+                // Display days that are unavailable as staff holidays
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_staff_holiday_table_for_month_display");
+                oData.append("year", year);
+                oData.append("month", month);
+                oData.append("chair_number", chairNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        }
+                        if (response.indexOf("number_of_chairs exceeded") != -1) {
+                            currentChairNumber--;
+                            return;
+                        } else {
+
+                            // deal with the 2 returns
+
+                            var xmlDoc = oReq.responseXML;
+                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                            JSONString = prepareStringforJSONParse(JSONString);
+                            var JSONObject = JSON.parse(JSONString);
+                            staffholidaydisplay1.innerHTML = JSONObject.return1;
+                            staffholidaydisplay2content.innerHTML = JSONObject.return2;
+                            management.style.display = "block";
+                            staffholidaydisplay1.style.display = "block";
+                            staffholidaydisplay2.style.display = "block";
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function toggleStaffHoliday(year, month, day, chairNumber) {
+
+                // toggle the setting on the specified day
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "toggle_staff_holiday");
+                oData.append("staff_holiday_year", year);
+                oData.append("staff_holiday_month", month);
+                oData.append("staff_holiday_day", day);
+                oData.append("chair_number", chairNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            // refresh the month display
+                            buildStaffHolidayDisplay(year, month, chairNumber);
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function displayDay(year, month, day) {
+
+                if (mode == "email") {
+
+                    // Check you've got a valid email address
+
+                    if (!(/^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/.test(emailaddress.value))) {
+                        emailaddresserror.style.display = "block";
+                        return;
+                    }
+
+                    // We want the submitted valid email address to enter the browser's autocomlete
+                    // array for this field. This will only happen when the field is in a form and 
+                    // when the form has been submitted. SInce we don't have a submit button, the only
+                    // way this will ordinarily happen is if a return is clicked - but this is
+                    // inconvenient (and impossible on a phone). So raise a submit dynamically - it
+                    // won't do anything as the form is set to return false
+
+
+
+                }
+
+                if (mode == "telephone") {
+
+                    // Check you've got a valid telephone number
+
+                    if (!(/^[0-9 ]+$/.test(telephonenumber.value))) {
+                        telephonenumbererror.style.display = "block";
+                        return;
+                    }
+                }
+
+                if (mode == "change") {
+
+                    // Check you've got a valid reference number
+
+                    validReservationNumber(changenumber.value); // see comment in validReservationNumber for explanation
+
+                    if (!validReservationNumberReturn) {
+                        changenumbererror.style.display = "block";
+                        return;
+                    }
+
+                }
+
+                // Display appointment-status for a given day 
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_calendar_day_display");
+                oData.append("year", year);
+                oData.append("month", month);
+                oData.append("day", day);
+                oData.append("mode", mode);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            daydiv.innerHTML = response;
+                            monthdiv.style.display = "none";
+                            daydiv.style.display = "block";
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var validReservationNumberReturn;
+
+            function validReservationNumber(reservationNumber) {
+
+                // check that reservationNumber is actually a number and also that there
+                // is a reservation number record for it. It's really tricky getting
+                // return values back from within XML callbacks. Using a global variable
+                // validReservationNumberReturn as a fudge. See
+                // https://stackoverflow.com/questions/9384580/javascript-function-not-returning-value
+
+                var reservationCharacters = reservationNumber.split('');
+                for (var i = 0; i < reservationCharacters.length; i++) {
+                    if (reservationCharacters[i] < "0" || reservationCharacters[i] > "9") {
+                        validReservationNumberReturn = false;
+                    }
+                }
+
+                // so, OK, some sort of integer - does it exist?
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "check_reservation_existence");
+                oData.append("reservation_number", reservationNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", false);  // tricky to do this except synchronously
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            if (response.indexOf("reservation absent") != -1) {
+                                validReservationNumberReturn = false;
+                            } else {
+                                validReservationNumberReturn = true;
+                            }
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            var today = new Date();
+            var todayDay = today.getDay(); // 1-31 
+            var todayMonth = today.getMonth() + 1; // 1-12
+            var todayYear = today.getFullYear(); //eg, 2020/
+
+            var currentDay = todayDay;
+            var currentMonth = todayMonth;
+            var currentYear = todayYear;
+            var retardmonth = document.getElementById("retardmonth");
+            var retardbankholidaymonth = document.getElementById("retardbankholidaymonth");
+            var currentChairNumber;
+            function advanceMonthDisplay() {
+
+                currentMonth++;
+                if (currentMonth == 13) {
+                    currentMonth = 1;
+                    currentYear++;
+                }
+                if (mode == "bankholiday") {
+                    retardbankholidaymonth.style.display = "block";
+                    buildBankHolidayDisplay(currentYear, currentMonth);
+                }
+                if (mode == "staffholiday") {
+                    retardstaffholidaymonth.style.display = "block";
+                    buildStaffHolidayDisplay(currentYear, currentMonth, currentChairNumber);
+                }
+                if (mode == "viewer" || mode == "" || mode == "email" || mode == "telephone" || mode == "change") {
+                    retardmonth.style.display = "block";
+                    paypalconfirmationmessage.style.display = "none";
+                    displayMonth(currentYear, currentMonth);
+                }
+            }
+
+            function retardMonthDisplay() {
+
+                currentMonth--;
+                if (currentMonth == 0) {
+                    currentMonth = 12;
+                    currentYear--;
+                }
+
+                if (mode == "bankholiday") {
+                    retardbankholidaymonth.style.display = "block";
+                    buildBankHolidayDisplay(currentYear, currentMonth)
+                }
+                if (mode == "staffholiday") {
+                    retardstaffholidaymonth.style.display = "block";
+                    buildStaffHolidayDisplay(currentYear, currentMonth, currentChairNumber);
+                }
+                if (mode == "viewer" || mode == "" || mode == "email" || mode == "telephone" || mode == "change") {
+                    retardmonth.style.display = "block";
+                    displayMonth(currentYear, currentMonth);
+                }
+                if (currentMonth == todayMonth && currentYear == todayYear) {
+                    if (mode == "bankholiday")
+                        retardbankholidaymonth.style.display = "none";
+                    if (mode == "staffholiday")
+                        retardstaffholidaymonth.style.display = "none";
+                    if (mode == "viewer" || mode == "" || mode == "email" || mode == "telephone" || mode == "change") {
+                        retardmonth.style.display = "none";
+                    }
+                }
+            }
+
+            var numberOfChairs;
+            function buildPatternDisplay(chairNumber) {
+
+                // build and display the working-hours patternDisplat for chairNumber 
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_work_pattern_table_for_week_display");
+                oData.append("chair_number", chairNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        }
+                        if (response.indexOf("number_of_chairs exceeded") != -1) {
+                            currentChairNumber--;
+                            return;
+                        } else {
+                            // deal with the 3 returns
+
+                            var xmlDoc = oReq.responseXML;
+                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                            JSONString = prepareStringforJSONParse(JSONString);
+                            var JSONObject = JSON.parse(JSONString);
+                            patterndisplay1.innerHTML = JSONObject.return1;
+                            patterndisplay2.innerHTML = JSONObject.return2;
+                            numberOfChairs = JSONObject.return3;
+                            management.style.display = "block";
+                            patterndisplay1.style.display = "block";
+                            patterndisplay2.style.display = "block";
+                            patternChairNum = 1;
+                        }
+                    }
+                }
+                ;
+                oReq.send(oData);
+            }
+
+            function prepareStringforJSONParse(input) {
+
+                // need to double escape non-printing characters to get them through parse
+                // not sure I really understand this - see
+                // https://stackoverflow.com/questions/42068/how-do-i-handle-newlines-in-jsonS
+                // \n characters seem to be getting through, even though they're removed in the 
+                // "prepareStringforXMLandJSONParse" function in booker_helpers. We don't want
+                // them at all, so remove them here
+
+                var output = input;
+                output = output.replace(/\n/g, "").replace(/\r/g, "\\\\r").replace(/\t/g, "\\\\t");
+                return output;
+            }
+
+
+            function advanceChairNum() {
+                currentChairNumber++;
+                if (mode == "staffholiday")
+                    buildStaffHolidayDisplay(currentYear, currentMonth, currentChairNumber);
+                if (mode == "pattern")
+                    buildPatternDisplay(currentChairNumber);
+            }
+
+            function retardChairNum() {
+                currentChairNumber--;
+                if (currentChairNumber == 0)
+                    currentChairNumber = 1;
+                if (mode == "staffholiday")
+                    buildStaffHolidayDisplay(currentYear, currentMonth, currentChairNumber);
+                if (mode == "pattern")
+                    buildPatternDisplay(currentChairNumber);
+            }
+
+            function setPatternColumn(column) {
+
+                for (var i = 0; i < 24; i++) {
+                    var id = "jr" + i + "c" + column;
+                    var element = document.getElementById(id);
+                    if (element != null) {
+                        var patterncolumn = document.getElementById('day' + column);
+                        if (patterncolumn.checked) {
+                            element.checked = true;
+                        } else {
+                            element.checked = false;
+                        }
+                    }
+                }
+            }
+
+            function savePattern(chairNumber) {
+
+                // build the json for the current pattern display and apply this and
+                // the latest chairOwner name to the ecommerce_work_patterns record
+                // for the current chairNumber
+
+                var savepatternresult = document.getElementById("savepatternresult")
+
+                // The json is of the form:
+                //
+                // [
+                // {"time": 0, "working": [0,0,0,0,0,0,0]},
+                // {"time": 1, "working": [0,0,0,0,0,0,0]},
+                // {"time": 2, "working": {1,0,0,0,0,0,0]},
+                //            ..
+                // {"time": 24, "working": {0,0,0,0,0,0,0]},
+                // ]
+
+                // Where the 1 in "working" column 0 for time:200 means that this chair is
+                // going to be manned at 2am on Sunday
+                // 
+                // The setting "1" is determined by seeing if the checkbox for the element
+                // with id "jr[row]:c[col]" - ie "j2c0" in this instance is checked. Note
+                // that we create a json to describe all working days and hours (to make it
+                // possible to change these parameters without invalidating the database)
+                // but we only display elements for /working/ days and hours). So we need
+                // to check for null elements when creating the json and create a 0 for
+                // the position it would occupy in the json.
+
+                var patternJSON = '[';
+                for (i = 0; i < 24; i++) {
+                    patternJSON += '{"time": ' + i + ', "working": [';
+                    for (j = 0; j < 7; j++) {
+                        if (document.getElementById("jr" + i + "c" + j) != null) {
+                            if (document.getElementById("jr" + i + "c" + j).checked) {
+                                patternJSON += '1,';
+                            } else {
+                                patternJSON += '0,';
+                            }
+                        } else {
+                            patternJSON += '0,';
+                        }
+                    }
+                    // you've added one too many commas, so
+                    patternJSON = patternJSON.slice(0, -1);
+                    patternJSON += "]},";
+                }
+                // you've added one too many commas, so
+                patternJSON = patternJSON.slice(0, -1);
+                patternJSON += ']';
+                var oData = new FormData(form);
+                oData.append("helper_type", "save_pattern");
+                oData.append("chair_number", chairNumber);
+                oData.append("pattern_json", patternJSON);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                            savepatternresult.style.display = "inline";
+                            savepatternresult.style.color = "red";
+                            savepatternresult.innerHTML = "Save failed";
+                            return;
+                        }
+
+                        savepatternresult.style.display = "inline";
+                        savepatternresult.style.color = "blue";
+                        savepatternresult.innerHTML = "Pattern saved";
+                    }
+                };
+                oReq.send(oData);
+            }
+
+
+
+            var emailaddress = document.getElementById("emailaddress");
+            var emailaddresserror = document.getElementById("emailaddresserror");
+            var telephonenumber = document.getElementById("telephonenumber");
+            var telephonenumbererror = document.getElementById("telephonenumbererror");
+            var changenumber = document.getElementById("changenumber");
+            var changenumbererror = document.getElementById("changenumbererror");
+            var paypalconfirmationmessage = document.getElementById("paypalconfirmationmessage");
+            var paypalconfirmationmessagedatetime = document.getElementById("paypalconfirmationmessagedatetime");
+            var paypalreturn = document.getElementById("paypalreturn");
+            var paypalcustomvariable = document.getElementById("paypalcustomvariable");
+            var papypalbookeremail = document.getElementById("papypalbookeremail");
+            var paypalcancelbutton = document.getElementById("paypalcancelbutton");
+            // since the user may choose to cancel this booking (by clicking "paypalcancelbutton"
+            // we need to get its identifiers somewhere  that the button's onclick function
+            // can see them. This proved tricky! The best way seemed to be to set up some 
+            // global variables to communicate to the function, as below
+
+            var tyear;
+            var tmonth;
+            var tday;
+            var treservationSlot;
+            var treserverId;
+            function bookSlot(year, month, day, reservationSlot) {
+
+                var oData = new FormData(form);
+                oData.append("year", year);
+                oData.append("month", month);
+                oData.append("day", day);
+                oData.append("reservation_slot", reservationSlot);
+
+                if (mode == "email") {
+                    papypalbookeremail.value = emailaddress.value;
+                    oData.append("helper_type", "insert_reservation");
+                    oData.append("reserver_id", emailaddress.value);
+                }
+
+                if (mode == "telephone") {
+                    oData.append("helper_type", "insert_reservation");
+                    oData.append("reserver_id", telephonenumber.value);
+                }
+
+                if (mode == "change") {
+                    oData.append("outgoing_reservation_number", changenumber.value);
+                    oData.append("helper_type", "change_reservation");
+                }
+
+                oData.append("mode", mode);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        if (response.indexOf("Sorry - this slot has just been booked by another") != -1) {
+                            alert(response);
+                            return;
+                        }
+
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+
+                            // get the reference_number
+
+                            reservationNumber = response;
+                            retardmonth.style.display = "none";
+                            daydiv.style.display = "none";
+                            var resDate = year + "-" + month + "-" + day;
+                            var resSlotTime = Math.floor(reservationSlot / 4) * 100 + (reservationSlot % 4) * 15;
+                            if (mode == "email") {
+
+                                // Display the "now pay for this date message.
+                                // For some weird reason month is an index in the date(year, month, day)
+                                // form of the  constructor - see
+                                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/Date
+                                // So, to set date() to  8 Jun 2020, you'd use date(2020,5,8)
+                                // You'd avoid this if you used a string as the argument instead - date('2020-6-8')
+
+                                paypalconfirmationmessagedatetime.innerHTML = getAppointmentTimeString(resSlotTime, resDate);
+                                paypalconfirmationmessage.style.display = "block";
+                                // Set the parameters for Paypal's "return to Merchant code"
+                                var resSlot = reservationSlot;
+                                var resNum = reservationNumber;
+                                paypalreturn.value = paypalreturn.value + "&resdate=" + resDate + "&resslot=" + resSlot + "&resnum=" + resNum;
+                                // Set the custom parameters in Paypal's "custom" variable
+                                //paypalcustomvariable.value = "year=" + year + "&month=" + month + "&day=" + day + "&reservation_slot=" + reservationSlot + "&reservation_number=" + reservationNumber + "&reserver_id=" + emailaddress.value;
+                                paypalcustomvariable.value = year + "," + month + "," + day + "," + reservationSlot + "," + reservationNumber + "," + emailaddress.value;
+                                // initialise the global variables to communicate with the "paypalcancelbutton" onclick
+                                tyear = year;
+                                tmonth = month;
+                                tday = day;
+                                treservationSlot = reservationSlot;
+                                treservationNumber = reservationNumber;
+                                treserverId = emailaddress.value;
+                            }
+
+                            if (mode == "telephone") {
+                                telephonecompletiondisplaydate.innerHTML = getAppointmentTimeString(resSlotTime, resDate);
+                                telephonecompletiondisplayreference.innerHTML = reservationNumber;
+                                telephonecompletiondisplay.style.display = "block";
+                                daydiv.style.display = "none";
+                                emaildisplay.style.display = "none";
+                            }
+
+                            if (mode == "change") {
+                                changecompletiondisplaydate.innerHTML = getAppointmentTimeString(resSlotTime, resDate);
+                                changecompletiondisplayreference.innerHTML = reservationNumber;
+                                changecompletiondisplay.style.display = "block";
+                                daydiv.style.display = "none";
+                                emaildisplay.style.display = "none";
+                            }
+                        }
+                    }
+                }
+                ;
+                oReq.send(oData);
+            }
+
+            reservationdetailsdisplay = document.getElementById("reservationdetailsdisplay");
+            reservationdetails = document.getElementById("reservationdetails");
+            function viewSlot(year, month, day, reservationSlot) {
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "build_slot_reservations_display");
+                oData.append("year", year);
+                oData.append("month", month);
+                oData.append("day", day);
+                oData.append("reservation_slot", reservationSlot);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        if (response.indexOf("%failed%") != -1)
+                            alert(response);
+                        window.scrollTo(0, 0);
+                        reservationdetails.innerHTML = response
+                        reservationdetailsdisplay.style.display = "block";
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function cancelSlot() {
+
+                // delete the slot identified by treservationNumber
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "delete_reservation");
+                oData.append("reservation_number", treservationNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1)
+                            alert(response);
+                        paypalconfirmationmessage.style.display = "none";
+                        displayMonth(todayYear, todayMonth);
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function deleteUnconfirmedReservations() {
+
+                // delete any unconfirmed reservations more than 1 hour old
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "delete_unconfirmed_reservations");
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        if (oReq.responseText.indexOf("%timed-out%") != -1)
+                            dealWithTimeout();
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1)
+                            alert(response);
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function getAppointmentTimeString(reservationSlotTime, reservationDate) {
+
+                // given reservationSlotTime (eg 1800) and reservationDate (eg "2020-7-20")
+                // return a "civilised"  version eg "6:00pm on Saturday 10th Sept 2020"
+
+                var ampm = "am";
+                if (reservationSlotTime == 1200)
+                    ampm = " noon";
+                if (reservationSlotTime == 00)
+                    ampm = " midnight";
+                if (reservationSlotTime > 1200)
+                    ampm = "pm";
+                if (reservationSlotTime >= 1300) {
+                    reservationSlotTime = reservationSlotTime - 1200;
+                }
+
+                var firstBit = Math.floor(reservationSlotTime / 100);
+                var secondBit = (reservationSlotTime % 100).toString();
+                if (secondBit == "0")
+                    secondBit = "00";
+                var weekdayStrings = new Array("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
+                
+                // we want to certe a Jvascript date object now, but browser differences seem
+                // to make the argument to Date() a problem - 2020-2-7 is fine in chroe on
+                // windows but fails in chrome on ios. Try 2020-2-7 style first and if this doesn't
+                // seem to be working, switch to 2020/2/7 (tho this doesn't seem to work either - 2/7/2020)
+                
+                var reservationDateObject = new Date(reservationDate);
+                if (Number.isNaN(reservationDateObject.getDay())) {
+                    var tempDate = reservationDate.split("-");
+                    var tempYear  = parseInt(tempDate[0]);
+                    var tempMonth = parseInt(tempDate[1]) -1; //remove leading 0s and zeo-index it
+                    var tempDay = parseInt(tempDate[2]);   
+                    reservationDateObject = new Date(tempYear, tempMonth, tempDay);
+                }
+                var weekdayAsNumber = reservationDateObject.getDay();
+                var weekdayString = weekdayStrings[weekdayAsNumber];
+                var day = reservationDateObject.getDate()
+                var daySuffix = "th";
+                if (day == 1)
+                    daySuffix = "st";
+                if (day == 2)
+                    daySuffix = "nd";
+                if (day == 3)
+                    daySuffix = "rd";
+                var month = reservationDateObject.getMonth();
+                var monthStrings = new Array("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December");
+                var monthString = monthStrings[month];
+                var year = reservationDateObject.getFullYear();
+                return weekdayString + " " + day + daySuffix + " " + monthString + " " + year + " at " + firstBit + ":" + secondBit + ampm;
+            }
+
+            function reservationNumberToReference(reservationNumber) {
+
+                // given number, return reference in format nAnA
+
+                var n = reservationNumber;
+                var n1 = Math.floor(n / (26 * 10 * 26));
+                n = n - n1 * 26 * 10 * 26;
+                var n2 = Math.floor(n / (10 * 26));
+                n = n - n2 * 10 * 26;
+                var n3 = Math.floor(n / 26);
+                n = n - n3 * 26;
+                var n4 = n;
+                // ascii code 48 is 0
+                // ascii code 65 is A
+
+                return String.fromCharCode(48 + n1) + String.fromCharCode(65 + n2) + String.fromCharCode(48 + n3) + String.fromCharCode(65 + n4);
+            }
+
+            function getUrlParameter(name) {
+                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+                var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+                var results = regex.exec(window.location.search);
+                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+            }
+            var booker = document.getElementById("booker");
+            var management = document.getElementById("management");
+            var emailbutton = document.getElementById("emailbutton");
+            var telephonebutton = document.getElementById("telephonebutton");
+            var changebutton = document.getElementById("changebutton");
+            var viewerbutton = document.getElementById("viewerbutton");
+            var bankholidaybutton = document.getElementById("bankholidaybutton");
+            var staffholidaybutton = document.getElementById("staffholidaybutton");
+            var patternbutton = document.getElementById("patternbutton");
+            var emailbuttonanchor = document.getElementById("emailbuttonanchor");
+            var telephonebuttonanchor = document.getElementById("telephonebuttonanchor");
+            var changebuttonanchor = document.getElementById("changebuttonanchor");
+            var viewerbuttonanchor = document.getElementById("viewerbuttonanchor");
+            var bankholidaybuttonanchor = document.getElementById("bankholidaybuttonanchor");
+            var staffholidaybuttonanchor = document.getElementById("staffholidaybuttonanchor");
+            var patternbuttonanchor = document.getElementById("patternbuttonanchor");
+            var emaildisplay = document.getElementById("emaildisplay");
+            var telephonedisplay = document.getElementById("telephonedisplay");
+            var changedisplay = document.getElementById("changedisplay");
+            var viewerdisplay = document.getElementById("viewerdisplay");
+            var bankholidaydisplay = document.getElementById("bankholidaydisplay");
+            var staffholidaydisplay = document.getElementById("staffholidaydisplay");
+            var patterndisplay = document.getElementById("patterndisplay");
+            var emaildisplay = document.getElementById("emaildisplay");
+            var paypalreturndisplay = document.getElementById("paypalreturndisplay");
+            var paypalreturndisplayreference = document.getElementById("paypalreturndisplayreference");
+            var telephonecompletiondisplay = document.getElementById("telephonecompletiondisplay");
+            var telephonecompletiondisplayreference = document.getElementById("telephonecompletiondisplayreference");
+            var changecompletiondisplay = document.getElementById("changecompletiondisplay");
+            var changecompletiondisplayreference = document.getElementById("changecompletiondisplayreference");
+            var mode;
+            var ver;
+            window.onload = function () {
+
+                // decide where to go
+
+                mode = getUrlParameter('mode');
+                if (mode == '') { // this is the standard  email booking mode 
+                    emaildisplay.style.border = "2px solid blue";
+                    booker.style.display = "block";
+                    mode = "email";
+                    emaildisplay.style.display = "block";
+                    deleteUnconfirmedReservations();
+                    paypalconfirmationmessage.style.display = "none";
+                    displayMonth(todayYear, todayMonth);
+                }
+
+                // get the "management" utilities version from login
+
+                ver = getUrlParameter('ver');
+                //   set this in the buttonanchors with 
+
+                telephonebuttonanchor.href = "booker.html?mode=telephone&ver=" + ver;
+                changebuttonanchor.href = "booker.html?mode=change&ver=" + ver;
+                viewerbuttonanchor.href = "booker.html?mode=viewer&ver=" + ver;
+                bankholidaybuttonanchor.href = "booker.html?mode=bankholiday&ver=" + ver;
+                staffholidaybuttonanchor.href = "booker.html?mode=staffholiday&ver=" + ver;
+                patternbuttonanchor.href = "booker.html?mode=pattern&ver=" + ver;
+                if (mode == 'viewer') { // display reservation details
+                    setActiveButton(viewerbuttonanchor, viewerdisplay);
+                    management.style.display = "block";
+                    viewerdisplay.style.display = "block";
+                    deleteUnconfirmedReservations();
+                    displayMonth(todayYear, todayMonth);
+                }
+                if (mode == 'telephone') { // this is the telephone booking mode
+                    setActiveButton(telephonebuttonanchor, telephonedisplay);
+                    management.style.display = "block";
+                    telephonedisplay.style.display = "block";
+                    deleteUnconfirmedReservations();
+                    paypalconfirmationmessage.style.display = "none";
+                    displayMonth(todayYear, todayMonth);
+                }
+                if (mode == 'change') { // this is the reservation change booking mode
+                    setActiveButton(changebuttonanchor, changedisplay);
+                    management.style.display = "block";
+                    changedisplay.style.display = "block";
+                    deleteUnconfirmedReservations();
+                    paypalconfirmationmessage.style.display = "none";
+                    displayMonth(todayYear, todayMonth);
+                }
+                if (mode == 'bankholiday') { // display monthly bank holiday details
+                    buildBankHolidayDisplay(todayYear, todayMonth);
+                    setActiveButton(bankholidaybuttonanchor, bankholidaydisplay1);
+                    deleteUnconfirmedReservations();
+                }
+                if (mode == 'staffholiday') { // display monthly staff holiday details
+                    currentChairNumber = 1
+                    buildStaffHolidayDisplay(todayYear, todayMonth, currentChairNumber);
+                    setActiveButton(staffholidaybuttonanchor, staffholidaydisplay1);
+                    deleteUnconfirmedReservations();
+                }
+                if (mode == 'pattern') { // display weekly work-patterns details
+                    currentChairNumber = 1
+                    buildPatternDisplay(currentChairNumber);
+                    setActiveButton(patternbuttonanchor, patterndisplay1);
+                    deleteUnconfirmedReservations();
+                }
+                if (mode == 'paypalreturn') { // this is the "return from paypal" mode
+                    booker.style.display = "block";
+                    reservationDate = getUrlParameter('resdate');
+                    reservationSlot = getUrlParameter('resslot');
+                    reservationNumber = getUrlParameter('resnum');
+                    paypalreturndisplay.style.display = "block";
+                    paypalreturndisplayreference.innerHTML = reservationNumber;
+                }
+
+                function setActiveButton(modulebuttonanchor, moduledisplay) {
+                    moduledisplay.style.border = "2px solid blue";
+                    modulebuttonanchor.style.background = "cornflowerblue";
+                    modulebuttonanchor.style.color = "white";
+                }
+            }
+            ;
+
+        </script>
+    </body>
+</html>
