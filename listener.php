@@ -94,7 +94,7 @@ if ($verified) {
             $postData .= $k . '=' . $v . '&';
         }
         $postData = rtrim($postData, '&');
-        $url = "*CONFIG REQUIRED/process_paypal_consequentials.php";
+        $url = "*CONFIG REQUIRED/php/process_paypal_consequentials.php";
         $ch2 = curl_init();
 
         curl_setopt($ch2, CURLOPT_URL, $url);
