@@ -1,12 +1,3 @@
-
-    <section class="page-header">
-      <h2 class="project-tagline">html/php barbershop booking and admin system</h2>
-      
-        <a href="https://github.com/mjoycemilburn/barbershop" class="btn">View on GitHub</a>
-      
-      
-    </section>
-
     <section class="main-content">
       <h1 id="barbershop">barbershop</h1>
 
