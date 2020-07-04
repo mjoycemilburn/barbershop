@@ -24,7 +24,7 @@
   </head>
   <body>
     <section class="page-header">
-      <h1 class="project-name">barbershop</h1>
+      <h1 class="project-name">barbershopxxx</h1>
       <h2 class="project-tagline">html/php barbershop booking and admin system</h2>
       
         <a href="https://github.com/mjoycemilburn/barbershop" class="btn">View on GitHub</a>
