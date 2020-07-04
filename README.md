@@ -6,4 +6,4 @@ The code as presented here would need some configuration of elements to accomoda
 
 Development of the system is ongoing and there are currently some limitations - in particular the number of bookable session per hour is currently set to 4 (though the number of chairs is unlimited) and staff work patterns can only be set to hourly intervals.
 
-See 
+See <a href = "https://mjoycemilburn.github.io/barbershop/">https://mjoycemilburn.github.io/barbershop/ for screenshots</a>
