@@ -1,7 +1,6 @@
 
   <body>
     <section class="page-header">
-      <h1 class="project-name">barbershopxxxyyy</h1>
       <h2 class="project-tagline">html/php barbershop booking and admin system</h2>
       
         <a href="https://github.com/mjoycemilburn/barbershop" class="btn">View on GitHub</a>
