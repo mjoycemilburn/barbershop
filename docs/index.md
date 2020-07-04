@@ -1,27 +1,4 @@
-<!DOCTYPE html>
-<!-- code snatcheed from default GitPages page - subsequently edited -->
-<html lang="en-US">
-  <head>
-    <meta charset="UTF-8">
 
-<!-- Begin Jekyll SEO tag v2.6.1 -->
-<title>barbershop1 | html/php barbershop booking and admin system</title>
-<meta name="generator" content="Jekyll v3.8.7" />
-<meta property="og:title" content="barbershop" />
-<meta property="og:locale" content="en_US" />
-<meta name="description" content="html/php barbershop booking and admin system" />
-<meta property="og:description" content="html/php barbershop booking and admin system" />
-<link rel="canonical" href="https://mjoycemilburn.github.io/barbershop/" />
-<meta property="og:url" content="https://mjoycemilburn.github.io/barbershop/" />
-<meta property="og:site_name" content="barbershop" />
-<script type="application/ld+json">
-{"@type":"WebSite","headline":"barbershop","url":"https://mjoycemilburn.github.io/barbershop/","name":"barbershop","description":"html/php barbershop booking and admin system","@context":"https://schema.org"}</script>
-<!-- End Jekyll SEO tag -->
-
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#157878">
-    <link rel="stylesheet" href="/barbershop/assets/css/style.css?v=ab8a05bdd76620ff64b5814971c34cef389805e9">
-  </head>
   <body>
     <section class="page-header">
       <h1 class="project-name">barbershopxxxyyy</h1>
@@ -37,7 +14,7 @@
 
 <p>html/php barbershop booking and admin system</p>
 
-<p>This is a web-based system to allow bookers to make reservation against an on-line appointment book. It includes a supporting configuration page that allows the shop-management to specify staff-working patterns and to block out bank holidays etc. It expects online bookings to be paid for using Paypal, though the support page allows the shop to take unpaid bookings from telephone enquirers. The software is designed to work from mobile phones as well as larger-screen devices. It requires a Mysql database</p>
+<p>123This is a web-based system to allow bookers to make reservation against an on-line appointment book. It includes a supporting configuration page that allows the shop-management to specify staff-working patterns and to block out bank holidays etc. It expects online bookings to be paid for using Paypal, though the support page allows the shop to take unpaid bookings from telephone enquirers. The software is designed to work from mobile phones as well as larger-screen devices. It requires a Mysql database</p>
 
 <p>The code as presented here would need some configuration of elements to accomodate local setup - eg Paypal business account and email engine account. These elements are identified in the code by a <strong>*CONFIG REQUIRED</strong> tag.</p>
 
