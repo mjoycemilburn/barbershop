@@ -3,4 +3,3 @@
 <p>The code as presented here would need some configuration of elements to accomodate local setup - eg Paypal business account and email engine account. These elements are identified in the code by a <strong>*CONFIG REQUIRED</strong> tag.</p>
 
 <p>Development of the system is ongoing and there are currently some limitations - in particular the number of bookable session per hour is set to 4 (though the number of chairs is unlimited) and staff work patterns can only be set to hourly intervals</p>
-
