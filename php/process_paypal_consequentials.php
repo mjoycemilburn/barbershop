@@ -19,7 +19,7 @@ date_default_timezone_set('Europe/London');
 require ('/home/qfgavcxt/connect_ecommerce_prototype.php');
 
 // Import the Postmark Client Class:
-require_once('vendor/autoload.php');
+require_once('../vendor/autoload.php');
 
 use Postmark\PostmarkClient;
 use Postmark\Models\PostmarkException;
