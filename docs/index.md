@@ -3,10 +3,10 @@
 <img src="img/screen1.png"> 
 </div>
 <p>The image below shows the configuration view of the online booking screen. This is initiated by calling booker.html with "mode" and "version" parameters - best achieved by interfacing it to a signon screen. Once entered, the screen offers six management options. The image below has been produced via booker.html?mode=viewer?ver=2.0 and displays the shop-manager's view of the appointment book. This permits selection of a day/slot combination and displays the bookings that have been created for that slot as a popup overlay. The popup allows these bookings to be re-scheduled or cancelled.</p>
-<p>The "Take Tel Booking" button allows the manager to record an unpaid telephone booking.</p>  
 <div style="width: 50%; margin-left: auto; margin-right: auto; text-align: center;">
 <img src="img/screen2.png"> 
 </div>
+<p>The "Take Tel Booking" button allows the manager to record an unpaid telephone booking.</p>  
 <p>The three buttons on the lower rank of the control screen provide for configuration of the appointment book. "Set Bank Holidays" and "Set Staff Holidays" allow complete days to be blocked out. The "Set Working Patterns" button is used to set the working patterns of each individual member of staff and is rather more complex</p>
 <p>"Working patterns" are currently configured by the "slot sessions" and are set by "chair number" for a full week. Setting working patterns for a "chair" is achieved by checking the boxes for day/slot combinations. Holding the shift key while clicking a checkbox will toggle the range of checkboxes above it. <p> A screenshot for a sample work-pattern configuration is shown below. This commits "Robert" to work Monday to Saturday between 8.00am and 7.00pm except for an hour off at 1pm each day and Saturday when he leaves at 6.00pm. Lucky Robert!</p></p>
 <div style="width: 60%; margin-left: auto; margin-right: auto; text-align: center;">
