@@ -206,15 +206,15 @@
                             <div id = "testpaypalconfirmbutton" style="margin-top: 1em; margin-left: auto; margin-right: auto;">
                                 <strong>Adult Haircut<br> £9.50<br></strong>
                                 <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'>
-                                    <input type = 'hidden' name = 'business' value = 'mjoycemilburn@applebyarchaeology.org.uk'>
-                                    <input type = 'hidden' name = 'notify_url' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/php/listener_sandbox.php'>
+                                    <input type = 'hidden' name = 'business' value = '**CONFIG REQUIRED**'>
+                                    <input type = 'hidden' name = 'notify_url' value = '**CONFIG REQUIRED**/booker/php/listener_sandbox.php'>
                                     <input type = 'hidden' name = 'cmd' value = '_xclick'>
                                     <input type = 'hidden' name = 'item_name' value = 'Booker Items'>
                                     <input type = 'hidden' name = 'amount' value = "9.50">
                                     <input type = 'hidden' name = 'currency_code' value = 'GBP'>
                                     <input id = "papypalbookeremail" type = "hidden" NAME="email">
                                     <input id = "paypalcustomvariable" type = 'hidden' name = 'custom'>
-                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=paypalreturn'>
+                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = '**CONFIG REQUIRED**/booker/booker.html?mode=paypalreturn'>
                                     <input type = 'image' src = 'https://www.paypalobjects.com/webstatic/en_US/i/buttons/pp-acceptance-large.png' alt = 'PayPal Acceptance' border = '0' name = 'submit'>
                                 </form>
 
