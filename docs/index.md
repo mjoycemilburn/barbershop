@@ -17,7 +17,7 @@
 <div style="width: 60%; margin-left: auto; margin-right: auto; text-align: center;">
 <img src="img/screen4.png"> 
 </div>
-<p>Clicking the "Send Email Messages" button at this point will send cancellation messages and rebook links to a total of 4 customers (the first "email" customer in each of the checked slots. A typical message is shown below</p>
+<p>Clicking the "Send Email Messages" button at this point will send cancellation messages and re-bookin links to a total of 4 customers (the first "email" customer in each of the checked slots). A typical message is shown below</p>
 <div style="width: 60%; margin-left: auto; margin-right: auto; text-align: center;">
 <img src="img/screen5.png"> 
 </div>
