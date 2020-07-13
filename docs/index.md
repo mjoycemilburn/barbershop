@@ -12,7 +12,15 @@
 <div style="width: 60%; margin-left: auto; margin-right: auto; text-align: center;">
 <img src="img/screen3.png"> 
 </div>
-<p> The number of chairs and the names of their owners are set by manually initialising the associated records in the database.</p>
+<p>The number of chairs and the names of their owners are set by manually initialising the associated records in the database.</p>
 <p>Perhaps the most challenging aspect of a reservation system is the mechanism for fielding the consequences of unexpected staff absences. When a member of staff fails to show up it may no longer be possible to honour reservations. Once the "Staff Absences" button has been used to record the absence, the consequences can be displayed by clicking the "Check Staffing" button. This lists the compromised slots. For telephone bookers, the only option is to get on the phone and arrange another appointment. But online (prepaid) customers are easier to handle as they have left their email addresses on the system and can thus be sent a digital apology. The fact that they have already paid and might be looking for a refund is handled by including a link in the apology inviting them to select a new date (free of charge of course). The screenshots below illustrate the mechanism</p>
+<div style="width: 60%; margin-left: auto; margin-right: auto; text-align: center;">
+<img src="img/screen4.png"> 
+</div>
+<p>Clicking the "Send Email Messages" button at this point will send cancellation messages and rebook links to a total of 4 customers (the first "email" customer in each of the checked slots. A typical message is shown below</p>
+<div style="width: 60%; margin-left: auto; margin-right: auto; text-align: center;">
+<img src="img/screen5.png"> 
+</div>
+
 
 
