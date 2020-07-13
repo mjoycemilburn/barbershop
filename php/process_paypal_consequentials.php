@@ -17,12 +17,10 @@ date_default_timezone_set('Europe/London');
 # Connect to the database
 
 require ('/home/qfgavcxt/connect_ecommerce_prototype.php');
+require ('../includes/send_email_via_postmark.php');
+require ('../includes/booker_functions.php');
+require ('../includes/booker_constants.php');
 
-// Import the Postmark Client Class:
-require_once('../vendor/autoload.php');
-
-use Postmark\PostmarkClient;
-use Postmark\Models\PostmarkException;
 
 $custom = $_POST['custom'];
 
@@ -47,63 +45,39 @@ $pieces = explode($pattern, $custom); // Create an array of "pieces" from the co
 $year = $pieces[0];
 $month = $pieces[1];
 $day = $pieces[2];
+$date - "$year-$month-$day";
 $reservation_slot = $pieces[3];
 $reservation_number = $pieces[4];
 $reserver_id = $pieces[5];
+$number_of_slots_per_hour = $pieces[6];
 
-$reservation_slot_time = 100 * floor($reservation_slot / 4) + 15 * ($reservation_slot % 4);
+$appointment_string = slot_date_to_string($reservation_slot, $date, $number_of_slots_per_hour);
 
-$ampm = "am";
-if ($reservation_slot_time == 1200)
-    $ampm = " noon";
-if ($reservation_slot_time == 00)
-    $ampm = " midnight";
-if ($reservation_slot_time > 1200)
-    $ampm = "pm";
-if ($reservation_slot_time >= 1300) {
-    $reservation_slot_time = $reservation_slot_time - 1200;
-}
+$mailing_message = "Thank you for your reservation. We look forward to seeing you at " .
+                $appointment_string .
+                ". Your booking reference is " . $reservation_number;
 
-$first_bit = floor($reservation_slot_time / 100);
-$second_bit = strval($reservation_slot_time % 100);
-if ($second_bit == "0")
-    $second_bit = "00";
+$mailing_title = "Your reservation at " . SHOP_NAME;
 
-$date_string = $year . "-" . $month . "-" . $day;
-$date = strtotime($date_string);
+$mailing_address = $reserver_id;
 
-$message = "Thank you for your reservation. We look forward to seeing you at " .
-        $first_bit . ":" . $second_bit . $ampm . " on " .
-        date('l jS F Y', $date) .
-        ". Your booking reference is " . $reservation_number;
+$mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
 
-try {
-    $client = new PostmarkClient("*CONFIG REQUIRED");
-    $sendResult = $client->sendEmail(
-            "*CONFIG REQUIRED", $reserver_id, "Your reservation at O'Neils ", $message);
-} catch (PostmarkException $ex) {
-// If client is able to communicate with the API in a timely fashion,
-// but the message data is invalid, or there's a server error,
-// a PostmarkException can be thrown.
-    $httpStatusCode = $ex->httpStatusCode;
-    $postmarkApiErrorCode = $ex->postmarkApiErrorCode;
+//error_log("$mailing_message $mailing_title $mailing_address $mailing_result"); 
 
-    error_log("Postmark failed - httpStatusCode = $httpStatusCode :  ApiErrorCode = $postmarkApiErrorCode", 0);
-    exit(1);
-} catch (Exception $e) {
-// A general exception is thrown if the API
-// was unreachable or times out.
-    $getMessage = $e->getMessage();
-    error_log("General Exception e : $getMessage", 0);
-    exit(1);
-}
+// If postmark didn't manage to send the customer a confirmation mail we have a bit of a problem
+// because the customer has paid now but has no proof. There's an unconfirmed reservation on the
+// database though, so best confirm that before it disappears. What's really tricky here is that
+// if Postmark can't send messages to the customer it may not be able to send messages to the 
+// system management either - need to think about this. ANyway, for the present, best just carry on..
+
 
 // change the status of the reservation to "C" on the ecommerce_reservations database
 
 $sql = "UPDATE ecommerce_reservations SET
-                    reservation_status = 'C'                                                                                          
-                WHERE
-                    reservation_number = '$reservation_number';";
+            reservation_status = 'C'                                                                                          
+        WHERE
+            reservation_number = '$reservation_number';";
 
 $result = mysqli_query($con, $sql);
 
