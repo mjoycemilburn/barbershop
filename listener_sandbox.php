@@ -12,7 +12,7 @@ $enable_sandbox = true;
 // Specification of all of the paypal business addresses that can legitimately call the 
 // listener and activate the "back-office" processes in paypal_transaction_consequentials
 
-$my_email_addresses = array("paypal@applebyarchaeology.org.uk", "mjoycemilburn@applebyarchaeology.org.uk");
+$my_email_addresses = array("**CONFIG REQUIRED**");
 
 
 require('paypalIPN.php'); // insert the Paypal interface validation code
@@ -94,7 +94,7 @@ if ($verified) {
             $postData .= $k . '=' . $v . '&';
         }
         $postData = rtrim($postData, '&');
-        $url = "https://applebyarchaeology.org.uk/ecommerce_admin/booker/php/process_paypal_consequentials.php";
+        $url = "**CONFIG REQUIRED**/booker/php/process_paypal_consequentials.php";
         $ch2 = curl_init();
 
         curl_setopt($ch2, CURLOPT_URL, $url);
@@ -127,7 +127,7 @@ use Postmark\PostmarkClient;
 use Postmark\Models\PostmarkException;
 
 try {
-    $client = new PostmarkClient("f7c9f92f-89d5-4fc3-91c3-4ea6f8e2ecb1");
+    $client = new PostmarkClient("**CONFIG REQUIRED**");
     $message = "$test_text \r\n PayPal IPN_status  = $paypal_ipn_status \r\n paypal_ipn_date = $timestamp \r\n $data_text \r\n From = $from_email_address \r\n";
     $sendResult = $client->sendEmail(
             "administrat0r@applebyarchaeology.org.uk", "mjoycemilburn@gmail.com", "Leaving Booker Listener", $message);
