@@ -1470,7 +1470,7 @@ if ($helper_type == 'issue_reservation_apologies') {
                 }
 
                 $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
-                $rebookerlink = "https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=change&resnum=$reservation_number";
+                $rebookerlink = **CONFIG REQUIRED**/ecommerce_admin/booker/booker.html?mode=change&resnum=$reservation_number";
 
                 $mailing_address = $reserver_id;
                 $mailing_title = "Your reservation at " . SHOP_NAME;
