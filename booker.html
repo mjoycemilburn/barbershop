@@ -337,7 +337,10 @@
                 oReq.open("POST", "php/booker_helpers.php", true); // returns overwrite each other otherwise
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-
+ 
+                            // turn the wait icon off as soon as the first asynch call returns
+                            hideWaitIcon();
+                        
                         if (oReq.responseText.indexOf("%timed-out%") != -1)
                             dealWithTimeout();
                         var response = oReq.responseText;
@@ -354,11 +357,6 @@
                                 document.getElementById("monthdivcontent1").innerHTML = response;
                             if (count == 2)
                                 document.getElementById("monthdivcontent2").innerHTML = response;
-
-                            // turn the spinner off as soon as the first finishes
-
-                            hideWaitIcon();
-
                         }
                     }
                 };
@@ -595,7 +593,8 @@
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-
+                        
+                        hideWaitIcon();
                         if (oReq.responseText.indexOf("%timed-out%") != -1)
                             dealWithTimeout();
                         var response = oReq.responseText;
@@ -605,7 +604,6 @@
                             daydiv.innerHTML = response;
                             monthdiv.style.display = "none";
                             daydiv.style.display = "block";
-                            hideWaitIcon();
                         }
                     }
                 };
@@ -1141,7 +1139,8 @@
                 selectedSlotRows.slice(0, -1);
                 selectedSlotRows = selectedSlotRows.slice(0, -3) + "]";
 
-                // show wait icon in the middle of the screen
+                // 
+                wait icon in the middle of the screen
 
                 xPosition = window.innerWidth / 2;
                 yPosition = window.innerWidth / 2;
@@ -1156,7 +1155,8 @@
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-
+                        
+                        hideWaitIcon();
                         if (oReq.responseText.indexOf("%timed-out%") != -1)
                             dealWithTimeout();
                         var response = oReq.responseText;
@@ -1164,7 +1164,6 @@
                             alert(response);
                         } else {
                             document.getElementById('checkdisplayemailcancellationresult').style.display = "block";
-                            hideWaitIcon();
                         }
                     }
                 };
