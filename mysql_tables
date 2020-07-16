@@ -29,3 +29,9 @@ CREATE TABLE `ecommerce_work_patterns` (
   `pattern_json` json DEFAULT NULL,
   PRIMARY KEY (`chair_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+CREATE TABLE `ecommerce_user_passwords` (
+  `user_id` varchar(10) NOT NULL,
+  `password` varchar(12) DEFAULT NULL,
+  `encrypted_credentials` int(30) DEFAULT NULL,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
