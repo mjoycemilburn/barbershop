@@ -19,8 +19,6 @@
 
         <style>
 
-            /* styles for management button header */
-
             /* unvisited link */
             a:link {
                 color: black;
@@ -185,6 +183,9 @@
                         <button id = "retardmonth" style="display: none; margin-left: auto; margin-right: auto; margin-bottom: 1em;" onclick = "retardMonthDisplay();"><img src = "img/caret-top.svg"></button>                         
 
                         <div id = "monthdiv" style="display: block;" onmouseenter="myEnterFunction()">   <!-- see notes on myEnterFunction() -->
+                            <span id="dayviewrange" style = "display: none;"></span>
+                            <span id="monthdivcontent-2"></span>
+                            <span id="monthdivcontent-1"></span>
                             <span id="monthdivcontent0"></span>
                             <span id="monthdivcontent1"></span>
                             <span id="monthdivcontent2"></span>                      
@@ -206,15 +207,15 @@
                             <div id = "testpaypalconfirmbutton" style="margin-top: 1em; margin-left: auto; margin-right: auto;">
                                 <strong>Adult Haircut<br> £9.50<br></strong>
                                 <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'>
-                                    <input type = 'hidden' name = 'business' value = '**CONFIG REQUIRED**'>
-                                    <input type = 'hidden' name = 'notify_url' value = '**CONFIG REQUIRED**/booker/php/listener_sandbox.php'>
+                                    <input type = 'hidden' name = 'business' value = 'mjoycemilburn@applebyarchaeology.org.uk'>
+                                    <input type = 'hidden' name = 'notify_url' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/php/listener_sandbox.php'>
                                     <input type = 'hidden' name = 'cmd' value = '_xclick'>
                                     <input type = 'hidden' name = 'item_name' value = 'Booker Items'>
                                     <input type = 'hidden' name = 'amount' value = "9.50">
                                     <input type = 'hidden' name = 'currency_code' value = 'GBP'>
                                     <input id = "papypalbookeremail" type = "hidden" NAME="email">
                                     <input id = "paypalcustomvariable" type = 'hidden' name = 'custom'>
-                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = '**CONFIG REQUIRED**/booker/booker.html?mode=paypalreturn'>
+                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=paypalreturn'>
                                     <input type = 'image' src = 'https://www.paypalobjects.com/webstatic/en_US/i/buttons/pp-acceptance-large.png' alt = 'PayPal Acceptance' border = '0' name = 'submit'>
                                 </form>
 
@@ -310,8 +311,13 @@
 
                 showWaitIcon();
 
-                // Display appointment-status for a given year (yyyy) and the three months
-                // starting at month (01 - 12). Just for fun do this as three separate asynch
+                // Display appointment-day status for the given "year" (yyyy) for a range of
+                // months centred on the given "month". For modes other than "viewer", only 
+                // the "bottom" section of the range will be displayed - ie future 
+                // appointment_days. For "viewer" mode, a toggled "history" button reveals
+                // the top half of the range, allowing past appointments to be inspected. The
+                // total width of the span is currently set at 5 months - ie the current month
+                // +/- two months previoussucceeding. Just for fun do this as three separate asynch
                 // calls (thus minimising"time-to-first-byte-displayed", tho it probably doesn't
                 // really matter). Curiously it proved essential to put the ''count loop that
                 // directs the results of each call to an appropriate monthdivcontent span
@@ -319,30 +325,60 @@
                 // was inside, the results seemed to overwrite each other and all that got
                 // returned was the display for the last one
 
-                for (count = 0; count < 3; count++) {
+                var monthStart = 0;
+
+                if (mode == "viewer")
+                    monthStart = toggleDayViewRange(year, month);
+
+                for (count = monthStart; count < 3; count++) {
                     displayMonthCount(year, month, count);
                 }
             }
 
+            var dayViewRange = "historic";
+            var dayviewrange = document.getElementById("dayviewrange");
+            function toggleDayViewRange(year, month) {
+                dayviewrange.style.display = "block";
+                if (dayViewRange == "historic") {
+                    dayViewRange = "current";
+                    dayviewrange.innerHTML = "<button style='margin-bottom: 1em;' " +
+                            "onclick = 'displayMonth(" + year + "," + month + ")'><img src = 'img/caret-top.svg'></button>";
+                    document.getElementById("monthdivcontent-2").innerHTML = '';
+                    document.getElementById("monthdivcontent-1").innerHTML = '';
+                    return 0;
+                } else {
+                    dayViewRange = "historic";
+                    dayviewrange.innerHTML = "<button style='margin-bottom: 1em;' " +
+                            "onclick = 'displayMonth(" + year + "," + month + ")'><img src = 'img/caret-bottom.svg'></button>";
+
+
+                    return -2;
+                }
+            }
 
             function displayMonthCount(year, month, count) {
 
+                var localYear = year;
+                var localMonth = month + count;
+                if (localMonth < 1) {
+                    localYear = localYear - 1;
+                    localMonth = localMonth + 12;
+                }
+
                 var oData = new FormData(form);
                 oData.append("helper_type", "build_calendar_month_display");
-                oData.append("year", year);
-                oData.append("month", month + count);
+                oData.append("year", localYear);
+                oData.append("month", localMonth);
                 oData.append("mode", mode);
                 oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
                 var oReq = new XMLHttpRequest();
                 oReq.open("POST", "php/booker_helpers.php", true); // returns overwrite each other otherwise
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
- 
-                            // turn the wait icon off as soon as the first asynch call returns
-                            hideWaitIcon();
-                        
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
+
+                        // turn the wait icon off as soon as the first asynch call returns
+                        hideWaitIcon();
+
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -351,6 +387,10 @@
                             daydiv.style.display = "none";
                             paypalconfirmationmessage.style.display = "none";
                             monthdiv.style.display = "block";
+                            if (count == -2)
+                                document.getElementById("monthdivcontent-2").innerHTML = response;
+                            if (count == -1)
+                                document.getElementById("monthdivcontent-1").innerHTML = response;
                             if (count == 0)
                                 document.getElementById("monthdivcontent0").innerHTML = response;
                             if (count == 1)
@@ -377,8 +417,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -415,8 +453,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -444,8 +480,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -486,10 +520,11 @@
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
+                        
                         var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
                         } else {
@@ -513,8 +548,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -593,10 +626,9 @@
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-                        
+
                         hideWaitIcon();
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
+
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -695,8 +727,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
@@ -817,9 +847,10 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+                        
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
                             savepatternresult.style.display = "inline";
@@ -858,7 +889,7 @@
             var tday;
             var treservationSlot;
             var treserverId;
-            function bookSlot(year, month, day, reservationSlot) {             
+            function bookSlot(year, month, day, reservationSlot) {
 
                 if (mode == "email") {
 
@@ -880,7 +911,7 @@
                         telephonedisplay.scrollIntoView();
                         return;
                     }
-                }                
+                }
 
                 var oData = new FormData(form);
                 oData.append("year", year);
@@ -914,8 +945,6 @@
                     if (oReq.status == 200) {
 
                         var response = oReq.responseText;
-                        if (response.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         if (response.indexOf("Sorry - this slot has just been booked by another") != -1) {
                             alert(response);
                             return;
@@ -1000,8 +1029,6 @@
                     if (oReq.status == 200) {
 
                         var response = oReq.responseText;
-                        if (response.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         if (response.indexOf("%failed%") != -1)
                             alert(response);
                         window.scrollTo(0, 0);
@@ -1024,8 +1051,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1)
                             alert(response);
@@ -1051,8 +1076,6 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1)
                             alert(response);
@@ -1076,9 +1099,10 @@
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
 
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
                         var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+
                         if (response.indexOf("%failed%") != -1)
                             alert(response);
                     }
@@ -1138,15 +1162,11 @@
 
                 selectedSlotRows.slice(0, -1);
                 selectedSlotRows = selectedSlotRows.slice(0, -3) + "]";
-
-                // 
-                wait icon in the middle of the screen
+                // show wait icon in the middle of the screen
 
                 xPosition = window.innerWidth / 2;
                 yPosition = window.innerWidth / 2;
-
                 showWaitIcon();
-
                 var oData = new FormData(form);
                 oData.append("helper_type", "issue_reservation_apologies");
                 oData.append("slot_rows", selectedSlotRows); // 
@@ -1155,11 +1175,14 @@
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-                        
+
                         hideWaitIcon();
-                        if (oReq.responseText.indexOf("%timed-out%") != -1)
-                            dealWithTimeout();
+                        hideWaitIcon();
+
                         var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
                         } else {
@@ -1240,6 +1263,15 @@
                 return String.fromCharCode(48 + n1) + String.fromCharCode(65 + n2) + String.fromCharCode(48 + n3) + String.fromCharCode(65 + n4);
             }
 
+            function dealWithTimeout(response) {
+
+                // retrieve the "return" address attached to the %timeout" string and tuck it
+                // on the back of the call to login.php
+                var returnParam = response.replace("%timed-out%", "");
+
+                location.assign("login.php?return=" + returnParam);
+            }
+
             var xPosition;
             var yPosition;
             function getClickPosition(e) {
@@ -1259,13 +1291,13 @@
                 waiticon.style.display = "none";
             }
 
-
             function getUrlParameter(name) {
                 name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
                 var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
                 var results = regex.exec(window.location.search);
                 return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
             }
+
             var booker = document.getElementById("booker");
             var management = document.getElementById("management");
             var emailbutton = document.getElementById("emailbutton");
