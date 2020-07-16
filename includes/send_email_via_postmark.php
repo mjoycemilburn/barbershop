@@ -17,9 +17,9 @@ function send_email_via_postmark($mailing_address, $mailing_title, $mailing_mess
     $mail_result = true;
 
     try {
-        $client = new Postmark\PostmarkClient("**CONFIG REQUIRED**");
+        $client = new Postmark\PostmarkClient("f7c9f92f-89d5-4fc3-91c3-4ea6f8e2ecb1");
         $sendResult = $client->sendEmail(
-                "**CONFIG REQUIRED**", $mailing_address, $mailing_title, $mailing_message);
+                "administrat0r@applebyarchaeology.org.uk", $mailing_address, $mailing_title, $mailing_message);
     } catch (Postmark\Models\PostmarkException $ex) {
         // If client is able to communicate with the API in a timely fashion,
         // but the message data is invalid, or there's a server error,

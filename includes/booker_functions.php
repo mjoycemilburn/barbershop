@@ -28,7 +28,7 @@ function build_availability_variables_for_month($year, $month) {
 
     $slot_availability_array = array();
     $bookings_taken_array = array();
-    
+
     $length_of_month = date("t", strtotime("$year-$month"));
 
     for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
@@ -230,7 +230,7 @@ function build_compromised_slot_array_for_month($year, $month) {
     //  year, month, day elements (eg 2020, 6, 3), for convenience later
     // 'emailtotal' likewise shows the number of entries in reservations for email bookers - useful
     // when alerting users to the number of cancellation messages they're generating
-    
+
 
     require ('booker_globals.php');
 
@@ -287,7 +287,7 @@ function build_compromised_slot_array_for_month($year, $month) {
                 $compromised_slots_array[$compromised_slot_index]['year'] = date("Y", strtotime($reservation_date));
                 $compromised_slots_array[$compromised_slot_index]['month'] = date("n", strtotime($reservation_date)); // (1-12)
                 $compromised_slots_array[$compromised_slot_index]['day'] = date("j", strtotime($reservation_date)); // (1-31)
-                $compromised_slots_array[$compromised_slot_index]['emailtotal'] = 0; 
+                $compromised_slots_array[$compromised_slot_index]['emailtotal'] = 0;
                 $compromised_slots_array[$compromised_slot_index]['slot'] = $reservation_slot;
                 $compromised_slots_array[$compromised_slot_index]['reservations'] = array();
                 $last_reservation_slot = $reservation_slot;
@@ -299,7 +299,7 @@ function build_compromised_slot_array_for_month($year, $month) {
             $compromised_slots_array[$compromised_slot_index]['reservations'][$reservations_index]['reservation_type'] = $reservation_type;
             $compromised_slots_array[$compromised_slot_index]['reservations'][$reservations_index]['reservation_status'] = $reservation_status;
             if ($reservation_type == "email") {
-                $compromised_slots_array[$compromised_slot_index]['emailtotal']++;  
+                $compromised_slots_array[$compromised_slot_index]['emailtotal'] ++;
             }
             $reservations_index++;
         }
@@ -388,6 +388,25 @@ function slot_date_to_string($slot, $date, $number_of_slots_per_hour) {
 
 
     return "$first_bit:$second_bit$ampm on " . date('l jS F Y', strtotime($date));
+}
+
+function logged_in($return) {
+
+    session_start();
+    if (!isset($_SESSION['logged_in'])) {
+
+        // probably timed-out - but maybe a hacking attempt.
+        // either way, signal the failure back to booker.html
+        // by echoing a %timed-out% string. This is suffixed by
+        // the value of $return which booker.html can pass, in turn,
+        // back to login.php so that this, in turn, can use it to
+        // get us back to where we started
+
+        echo "%timed-out%" . $return;
+        return false;
+    } else {
+        return true;
+    }
 }
 
 function pr($var) {
