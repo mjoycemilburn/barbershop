@@ -11,7 +11,7 @@ $enable_sandbox = true;
 // Specification of all of the paypal business addresses that can legitimately call the 
 // listener and activate the "back-office" processes in paypal_transaction_consequentials
 
-$my_email_addresses = array("**CONFIG REQUIRED**");
+$my_email_addresses = array("**CONFIG REQUIRED**"); **CONFIG REQUIRED**
 
 
 require('paypalIPN.php'); // insert the Paypal interface validation code
@@ -94,7 +94,7 @@ if ($verified) {
             $postData .= $k . '=' . $v . '&';
         }
         $postData = rtrim($postData, '&');
-        $url = "**CONFIG REQUIRED**/booker/php/process_paypal_consequentials.php";
+        $url = "https://....   /booker/php/process_paypal_consequentials.php"; //**CONFIG REQUIRED**
         $ch2 = curl_init();
 
         curl_setopt($ch2, CURLOPT_URL, $url);
