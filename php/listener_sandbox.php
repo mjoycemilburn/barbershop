@@ -11,7 +11,7 @@ $enable_sandbox = true;
 // Specification of all of the paypal business addresses that can legitimately call the 
 // listener and activate the "back-office" processes in paypal_transaction_consequentials
 
-$my_email_addresses = array("**CONFIG REQUIRED**"); **CONFIG REQUIRED**
+$my_email_addresses = array("a@b.c, d@e.f etc"); // **CONFIG REQUIRED**
 
 
 require('paypalIPN.php'); // insert the Paypal interface validation code
@@ -120,7 +120,7 @@ if ($verified) {
 // In any event - verified by Paypal or not, legitimate email addess or not, send an email to
 // the account address to tell us what's going on
 
-$mailing_address = "**CONFIG REQUIRED**";
+$mailing_address = "a@b.c"; // **CONFIG REQUIRED**
 $mailing_title = "Leaving Booker Listener";
 $mailing_message = "$test_text \r\n PayPal IPN_status  = $paypal_ipn_status \r\n paypal_ipn_date = $timestamp \r\n $data_text \r\n From = $from_email_address \r\n";
 
