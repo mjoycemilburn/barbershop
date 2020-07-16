@@ -3,7 +3,7 @@
 // This is where we deal with the follow-up from a Booking purchase. Firstly, now that the booking
 // has been confirmed by the paypal purchase, we need to update the status of the booking to "paid"
 // and send an email with the reference code
-//error_log("entered process consequentials " . date("Y-m-d H:i:s"));
+// Don't forget to provide a php/certs folder with your paypal credentials;
 
 $page_title = 'paypal_consequentials';
 
@@ -45,13 +45,14 @@ $pieces = explode($pattern, $custom); // Create an array of "pieces" from the co
 $year = $pieces[0];
 $month = $pieces[1];
 $day = $pieces[2];
-$date - "$year-$month-$day";
+$date = "$year-$month-$day";
 $reservation_slot = $pieces[3];
 $reservation_number = $pieces[4];
 $reserver_id = $pieces[5];
 $number_of_slots_per_hour = $pieces[6];
 
 $appointment_string = slot_date_to_string($reservation_slot, $date, $number_of_slots_per_hour);
+error_log("$date ");
 
 $mailing_message = "Thank you for your reservation. We look forward to seeing you at " .
                 $appointment_string .
