@@ -1476,7 +1476,7 @@ if ($helper_type == 'issue_reservation_apologies') {
                     }
 
                     $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
-                    $rebookerlink = "**CONFIG REQUIRED**/booker/booker.html?mode=change&resnum=$reservation_number";
+                    $rebookerlink = "https://....  /booker/booker.html?mode=change&resnum=$reservation_number"; //**CONFIG REQUIRED**
 
                     $mailing_address = $reserver_id;
                     $mailing_title = "Your reservation at " . SHOP_NAME;
