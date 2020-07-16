@@ -1,4 +1,4 @@
 <?php
 
-define("SHOP_NAME", "O'Neils");
+define("SHOP_NAME", "O'Neils"); //**CONFIG REQUIRED**
 
