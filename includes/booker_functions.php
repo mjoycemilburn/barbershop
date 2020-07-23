@@ -1,103 +1,130 @@
 <?php
 
-function build_availability_variables_for_month($year, $month) {
+function build_availability_variables_for_month($year, $month, $min_chair_number, $max_chair_number) {
 
-// Build $slot-availability_array(slot, day) and $bookings_taken(slot, day) arrays for the
-// given month (1-31) that shows the number of chairs available for each slot/day combination
-// and the number of bookings taken for those slots.. 
-// Also build a day_available array[day] summary for $slot_availability_array showing each column that has at least one chair
-// available in one of its slots     
+// Build $slot_availability_array(slot, day) and $bookings_taken(slot, day) arrays for the
+// given month (1-31) that shows the chairs available for each slot/day combination (as an
+// associative array of chair_numbers, and wheher they're booked or not. 
+// 
+// The data for a day/slot combination would typically be:
+// 
+// $slot_availability_array[slot][[day][ [2] => 'B', [4] => 'A' ]. This is saying that at this 
+// particular slot time on this particular day, two stylists are on duty (after taking account of 
+// bank holidays and their indivdual staff holiday and work-pattern arrangements). They are identified
+// on the database as chair 2 and chair 4. Chair 2 has already been booked for this slot so is 
+// "unavailable", but Chair 4 is still available to bookers.
+// 
+// The slot_availability array thus differs from the compromised_slots array in that the former
+// presents the chairs assigned to a slot whereas the latter presents the reservations for a slot.
+// The slot_availability array is also keyed (so you get the entry for a particular chair from
+// [chair_number], whereas the latter is a series with reservations[0] first presenting the problem 
+// reservation with the rest of the array follows in sequence. Ther may be gaps in slot_availabiity
+// (eg if there's no chair 3 on the database, there will never be a [3] entry in slot_availabiity.
+//  
+// Also build a $day_available array[day] summary for $slot_availability_array showing each column that 
+// has at least one chair available in one of its slots     
 
     require ('../includes/booker_globals.php');
 
-// Initialise the array for 24*$number_of_slots_per_hour and 31 days (ie potential max) as $number_of_chairs
+// Initialise the arrays for 24*$number_of_slots_per_hour and 31 days (ie potential max)
+// with the chair_numbers for the currently selected range of chairs and initialise the bookings
+// taken for each as 0
 
-    $sql = "SELECT COUNT(*)
-            FROM ecommerce_work_patterns;";
+    $slot_availability_array = array();
 
-    $result = mysqli_query($con, $sql);
+    $sql = "SELECT 
+                chair_number
+            FROM ecommerce_work_patterns
+            WHERE 
+                chair_number >= '$min_chair_number' AND
+                chair_number <= '$max_chair_number';";
 
-    if (!$result) {
+    $resulta = mysqli_query($con, $sql);
+
+    if (!$resulta) {
         error_log("Oops - database access %failed%. $page_title Loc 3. Error details follow<br><br> " . mysqli_error($con));
         require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
         exit(1);
     }
 
-    $row = mysqli_fetch_array($result);
-    $number_of_chairs = $row['COUNT(*)'];
+    while ($rowa = mysqli_fetch_array($resulta)) {
 
-    $slot_availability_array = array();
-    $bookings_taken_array = array();
+        $chair_number = $rowa['chair_number'];
 
-    $length_of_month = date("t", strtotime("$year-$month"));
+        $length_of_month = date("t", strtotime("$year-$month"));
 
-    for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-        for ($j = 0; $j < $length_of_month; $j++) {
-            $slot_availability_array[$i][$j] = $number_of_chairs;
-            $bookings_taken_array[$i][$j] = 0;
+        for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
+            for ($j = 0; $j < $length_of_month; $j++) {
+                $slot_availability_array[$i][$j][$chair_number] = "A";
+                // "Available" - in theory - we'may demote to "Unavailable" shortly - or,indeed, remove altogether
+            }
         }
-    }
 
-// now reduce slot-availabilities due to work_patterns
+// now reduce slot-availabilities due to the work_patterns for this chair
 
-    $sql = "SELECT 
+        $sql = "SELECT 
                 chair_number,
                 pattern_json
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE 
+               chair_number >= '$min_chair_number' AND
+               chair_number <= '$max_chair_number';";
 
-    $result = mysqli_query($con, $sql);
+        $resultb = mysqli_query($con, $sql);
 
-    if (!$result) {
-        error_log("Oops - database access %failed%. $page_title Loc 4. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-        exit(1);
-    }
+        if (!$resultb) {
+            error_log("Oops - database access %failed%. $page_title Loc 4. Error details follow<br><br> " . mysqli_error($con));
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
 
-    $earliest_working_slot = 24 * $number_of_slots_per_hour;
-    $latest_working_slot = 0;
+        $earliest_working_slot = 24 * $number_of_slots_per_hour;
+        $latest_working_slot = 0;
 
-    while ($row = mysqli_fetch_array($result)) {
-        $chair_number = $row['chair_number'];
-        $pattern_json = $row['pattern_json'];
+        while ($rowb = mysqli_fetch_array($resultb)) {
+            $chair_number = $rowb['chair_number'];
+            $pattern_json = $rowb['pattern_json'];
 
 // if the json is defined, use json_decode to turn it into an asociative array,
 // weekday_pattern_availability otherwise create an empty array manually.
 // In weekday_pattern_availability[slot][weekday],  1 means chair available
-//  for slot/weekday
+// for slot/weekday
+            if ($pattern_json == '' || $pattern_json == '[]') {
 
-        if ($pattern_json == '' || $pattern_json == '[]') {
+                $weekday_pattern_availability = array();
+                for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
+                    for ($j = 0; $j < 7; $j++) {
 
-            $weekday_pattern_availability = array();
-            for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-                for ($j = 0; $j < 7; $j++) {
-
-                    $weekday_pattern_availability[$i]['working'][$j] = 0;
+                        $weekday_pattern_availability[$i]['working'][$j] = 0;
+                    }
                 }
-            }
-        } else {
+            } else {
 
-            $weekday_pattern_availability = json_decode($pattern_json, true);
-        }
+                $weekday_pattern_availability = json_decode($pattern_json, true);
+            }
 
 // now unfold this into a day_pattern_json[slot][day] noting that the json is in hours and we want slots
 
-        $day_pattern_availability = array();
+            $day_pattern_availability = array();
 
-        for ($j = 1; $j <= $length_of_month; $j++) {
-            $day_of_week = date("w", strtotime("$year-$month-$j")); // 0 - 6 : Note that the - here are dashes, not minuses 
-            for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-                $day_pattern_availability[$i][$j - 1] = $weekday_pattern_availability[$i]['working'][$day_of_week];
+            for ($j = 1; $j <= $length_of_month; $j++) {
+                $day_of_week = date("w", strtotime("$year-$month-$j")); // 0 - 6 : Note that the - here are dashes, not minuses 
+                for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
+                    $day_pattern_availability[$i][$j - 1] = $weekday_pattern_availability[$i]['working'][$day_of_week];
+                }
             }
-        }
 
 // now apply uanavailabilities to the $slot_availability_array
-//  - if date_pattern[i][j] = 0 (unavailable) take one off 
-//  - if date_pattern[i][j] = 1 (available) leave unchanged
+//  - if day_pattern[i][j] = 0 (unavailable) remove the chair from slot_availability
+//  - if day_pattern[i][j] = 1 (available), set the chair accordingly
 
 
-        for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-            for ($j = 0; $j < $length_of_month; $j++) {
-                $slot_availability_array[$i][$j] = $slot_availability_array[$i][$j] - (1 - $day_pattern_availability[$i][$j]);
+            for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
+                for ($j = 0; $j < $length_of_month; $j++) {
+                    if ($day_pattern_availability[$i][$j] == 0) { // note, this is the day_pattern for chair $chair_number
+                        unset($slot_availability_array[$i][$j][$chair_number]);
+                    }
+                }
             }
         }
 
@@ -105,6 +132,7 @@ function build_availability_variables_for_month($year, $month) {
 // $earliest_working_slot and  $latest_working_slot variables as an act of kindness
 // to the build_calendar_day_display routine that will use them to blank out uesles
 // early and late rows from the display
+// Note that "$weekday_pattern_availability " referes to the current chair  
 
         for ($j = 0; $j < 7; $j++) {
             for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
@@ -138,18 +166,23 @@ function build_availability_variables_for_month($year, $month) {
         $bank_holiday_day = $row['bank_holiday_day'];
 
         for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-            $slot_availability_array[$i][$bank_holiday_day - 1] = 0;
+            for ($k = 0; $k < count($slot_availability_array[$i][$bank_holiday_day - 1]); $k++) {
+                unset($slot_availability_array[$i][$bank_holiday_day - 1][$k]);
+            }
         }
     }
 
-// now reduce availability for whole days due to staff absence
+// now demote chair entries in $slot_availability_array due to staff absence
 
     $sql = "SELECT
-      staff_holiday_day
-      FROM ecommerce_staff_holidays
-      WHERE
-      staff_holiday_year = '$year' AND
-      staff_holiday_month = '$month';";
+                chair_number,
+                staff_holiday_day
+            FROM ecommerce_staff_holidays
+            WHERE
+                staff_holiday_year = '$year' AND
+                staff_holiday_month = '$month' AND
+                chair_number >= '$min_chair_number' AND
+                chair_number <= '$max_chair_number';";
 
     $result = mysqli_query($con, $sql);
 
@@ -159,27 +192,31 @@ function build_availability_variables_for_month($year, $month) {
         exit(1);
     }
 
-
     while ($row = mysqli_fetch_array($result)) {
 
+        $chair_number = $row['chair_number'];
         $staff_holiday_day = $row['staff_holiday_day'];
 
         for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-            $slot_availability_array[$i][$staff_holiday_day - 1] --;
+            unset($slot_availability_array[$i][$staff_holiday_day - 1][$chair_number]);
         }
     }
 
-// Finally, reduce availabiity due to bookings already taken for this month
-// Don't count P (postponed) or  U (unconfirmed) rewervations - just take Cs.   
+
+// Finally, update stylist entries in $slot_availability_array to show which ones are booked
+// Don't count P (postponed) or  U (unconfirmed) reservations - just take Cs.   
 
     $sql = "SELECT
+                assigned_chair_number,
                 reservation_slot,
                 reservation_date
             FROM ecommerce_reservations
             WHERE
                 reservation_status = 'C' AND
                 reservation_date >= '$year" . "-" . $month . "-01' AND
-                reservation_date <= '$year" . "-" . $month . "-$length_of_month'";
+                reservation_date <= '$year" . "-" . $month . "-$length_of_month' AND
+                assigned_chair_number >= '$min_chair_number' AND
+                assigned_chair_number <= '$max_chair_number';";
 
     $result = mysqli_query($con, $sql);
 
@@ -191,17 +228,25 @@ function build_availability_variables_for_month($year, $month) {
 
     while ($row = mysqli_fetch_array($result)) {
 
+        $assigned_chair_number = $row['assigned_chair_number'];
         $reservation_slot = $row['reservation_slot'];
         $reservation_date = $row['reservation_date'];
         $reservation_day = date("j", strtotime($reservation_date)); // 1-31
+        // if this chair still exists in $slot_availability_array for this slot/day (it may have become "compromised" by
+        // changes to staff absences and working patterns since it was created - this will only be picked up by the
+        // "check" function) then mark it as booked
 
-        $bookings_taken_array[$reservation_slot][$reservation_day - 1] ++;
+        foreach ($slot_availability_array[$reservation_slot][$reservation_day - 1] as $key => $value) {
+            if ($key == $assigned_chair_number) {
+                $slot_availability_array[$reservation_slot][$reservation_day - 1][$assigned_chair_number] = "B"; //"Booked"
+            }
+        }
     }
 
 // generate a day_available array[day] summary for $slot_availability_array showing each column that has at least one chair
 // available in one of its slots (as long as its date isn't earlier than today's date
 
-    $day_available_array = array();
+    $day_availabilty_array = array();
     $today_timestamp = strtotime(date("Y-m-d"));
 
     for ($j = 0; $j < $length_of_month; $j++) {
@@ -211,30 +256,38 @@ function build_availability_variables_for_month($year, $month) {
         if ($day_timestamp >= $today_timestamp) {
 
             for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-                if ($slot_availability_array[$i][$j] - $bookings_taken_array[$i][$j] > 0) {
-                    $day_availability_array[$j] = 1;
+                foreach ($slot_availability_array[$i][$j] as $key => $value) {
+                    if ($value == "A")
+                        $day_availability_array[$j] = 1;
                 }
             }
         }
     }
 }
 
-function build_compromised_slot_array_for_month($year, $month) {
+function build_compromised_slot_array_for_month($year, $month, $min_chair_number, $max_chair_number) {
 
     // build a two-dimensional array  showing reservation slots that are currently under-resourced as follows:
     // 
-    // compromised_slots['date' 'year', 'month', 'day', 'slot', 'emailtotal', reservations[
-    //                         ['reservation_number','reserver_id', 'reservation_type', 'reservation_status'], ....
-    //                                                               ]]
-    // 'date' is included (in mysql "date format - eg 2020-06-03) aslongside its component
-    //  year, month, day elements (eg 2020, 6, 3), for convenience later
-    // 'emailtotal' likewise shows the number of entries in reservations for email bookers - useful
-    // when alerting users to the number of cancellation messages they're generating
-
+    // compromised_slots['date' 'year', 'month', 'day', 'slot', 'emailtotal',
+    //          reservations[['reservation_number','reserver_id', 'reservation_type', 'reservation_status', 'chair_number'], .... ]]
+    // 'date' is included (in mysql "date format - eg 2020-06-03) alongside its component year, month, day elements
+    // (eg 2020, 6, 3), for convenience later. Likewise the 'emailtotal' field show the number of reservations of type 'email'.
+    // 
+    // We do this in two runs, firstly identifying the compromised slots and the  reservation that is causing the
+    // problem (storing this in the first reservation element, and then, in a second run, filling out the rest of the 
+    // compromised_slot_array itself (there's a danger, otherwise, that a problem reservation is only identified on a 
+    // slot after you've already OK'd some of its elements).
 
     require ('booker_globals.php');
 
     $length_of_month = date("t", strtotime("$year-$month"));
+
+    // OK, first run
+
+    $compromised_slots_array = array();
+
+    //ignore "P" and "U" status reservations - just take "C"s
 
     $sql = "SELECT
                 reservation_number,
@@ -242,11 +295,16 @@ function build_compromised_slot_array_for_month($year, $month) {
                 reservation_slot,
                 reservation_status,
                 reserver_id,
-                reservation_type
+                reservation_type,
+                assigned_chair_number,
+                chair_expressly_chosen
             FROM ecommerce_reservations
             WHERE
+                reservation_status = 'C' AND
                 reservation_date >= '$year" . "-" . $month . "-01' AND
-                reservation_date <= '$year" . "-" . $month . "-$length_of_month'
+                reservation_date <= '$year" . "-" . $month . "-$length_of_month' AND
+                assigned_chair_number >= '$min_chair_number' AND
+                assigned_chair_number <= '$max_chair_number'
             ORDER BY reservation_date, reservation_slot;";
 
     $result = mysqli_query($con, $sql);
@@ -257,32 +315,47 @@ function build_compromised_slot_array_for_month($year, $month) {
         exit(1);
     }
 
-    $last_reservation_slot = 0;
+    $compromised_slot_index = 0;
     $last_reservation_date = '';
-    $compromised_slot_index = -1;
-    $compromised_slots_array = array();
+    $last_reservation_slot = -1;
 
     while ($row = mysqli_fetch_array($result)) {
         $reservation_number = $row['reservation_number'];
         $reservation_date = $row['reservation_date'];
         $reservation_slot = $row['reservation_slot'];
         $reservation_status = $row['reservation_status'];
-
         $reserver_id = $row['reserver_id'];
         $reservation_type = $row['reservation_type'];
+        $assigned_chair_number = $row['assigned_chair_number'];
+        $chair_expressly_chosen = $row['chair_expressly_chosen'];
+
 
         $reservation_day = date("j", strtotime($reservation_date));
 
-        if ($slot_availability_array[$reservation_slot][$reservation_day - 1] - $bookings_taken_array[$reservation_slot][$reservation_day - 1] < 0) {
+        // This slot is compromised if there is a reservation for a chair and the chair isn't there!
 
-// OK - we've found a reservation for an under-resourced slot. If this is
-// a slot we've not seen so far, start a new compromised_slots_array[] entry, 
-// otherwise add it to the one you're already building
+        $stylists_on_duty_for_this_slot = count($slot_availability_array[$reservation_slot][$reservation_day - 1]);
+        $stylists_booked_for_this_slot = 0;
 
-            if ($reservation_slot != $last_reservation_slot || $reservation_date != $last_reservation_date) {
-//create new slot
-                $compromised_slot_index++;
-                $reservations_index = 0;
+        $compromised = true;
+
+        foreach ($slot_availability_array[$reservation_slot][$reservation_day - 1] as $key => $value) {
+            if ($key == $assigned_chair_number) {
+                $compromised = false;
+            }
+        }
+
+        if ($compromised) {
+
+            // Take only the first compromised reservation in each date/slot combination
+
+            if ($reservation_date != $last_reservation_date || $reservation_slot != $last_reservation_slot) {
+
+                $last_reservation_date = $reservation_date;
+                $last_reservation_slot = $reservation_slot;
+
+// OK - we've found a reservation for an under-resourced slot. Initialise a $compromised_slots_array entry
+
                 $compromised_slots_array[$compromised_slot_index]['date'] = $reservation_date;
                 $compromised_slots_array[$compromised_slot_index]['year'] = date("Y", strtotime($reservation_date));
                 $compromised_slots_array[$compromised_slot_index]['month'] = date("n", strtotime($reservation_date)); // (1-12)
@@ -290,20 +363,139 @@ function build_compromised_slot_array_for_month($year, $month) {
                 $compromised_slots_array[$compromised_slot_index]['emailtotal'] = 0;
                 $compromised_slots_array[$compromised_slot_index]['slot'] = $reservation_slot;
                 $compromised_slots_array[$compromised_slot_index]['reservations'] = array();
-                $last_reservation_slot = $reservation_slot;
-                $last_reservation_date = $reservation_date;
+
+// Now add details of the problem reservation as reservations{0]
+
+                $compromised_slots_array[$compromised_slot_index]['reservations'][0]['reservation_number'] = $reservation_number;
+                $compromised_slots_array[$compromised_slot_index]['reservations'][0]['reserver_id'] = $reserver_id;
+                $compromised_slots_array[$compromised_slot_index]['reservations'][0]['reservation_type'] = $reservation_type;
+                $compromised_slots_array[$compromised_slot_index]['reservations'][0]['reservation_status'] = $reservation_status;
+                $compromised_slots_array[$compromised_slot_index]['reservations'][0]['assigned_chair_number'] = $assigned_chair_number;
+                $compromised_slots_array[$compromised_slot_index]['reservations'][0]['chair_expressly_chosen'] = $chair_expressly_chosen;
+
+                if ($reservation_type == "email") {
+                    $compromised_slots_array[$compromised_slot_index]['emailtotal'] = 1;
+                }
+                $compromised_slot_index++;
             }
-// add to existing slot
-            $compromised_slots_array[$compromised_slot_index]['reservations'][$reservations_index]['reservation_number'] = $reservation_number;
-            $compromised_slots_array[$compromised_slot_index]['reservations'][$reservations_index]['reserver_id'] = $reserver_id;
-            $compromised_slots_array[$compromised_slot_index]['reservations'][$reservations_index]['reservation_type'] = $reservation_type;
-            $compromised_slots_array[$compromised_slot_index]['reservations'][$reservations_index]['reservation_status'] = $reservation_status;
+        }
+    }
+
+    // OK, that's the first run finished, now go through again for each identified problem booking and add the details
+    // of other reservations for this slot
+
+    for ($i = 0; $i < count($compromised_slots_array); $i++) {
+
+        $reservation_date = $compromised_slots_array[$i]['date'];
+        $reservation_slot = $compromised_slots_array[$i]['slot'];
+
+        $problem_reservation_number = $compromised_slots_array[$i]['reservations'][0]['reservation_number'];
+
+        $sql = "SELECT
+                reservation_number,
+                reservation_date,
+                reservation_slot,
+                reservation_status,
+                reserver_id,
+                reservation_type,
+                assigned_chair_number
+            FROM ecommerce_reservations
+            WHERE
+                reservation_date = '$reservation_date' AND
+                reservation_slot = '$reservation_slot' AND
+                reservation_number   <> '$problem_reservation_number' AND  
+                assigned_chair_number >= '$min_chair_number' AND
+                assigned_chair_number <= '$max_chair_number'
+            ORDER BY reservation_date, reservation_slot;";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            error_log("Oops - database access %failed%. $page_title Loc 31. Error details follow<br><br> " . mysqli_error($con));
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $reservations_index = 1;
+
+        while ($row = mysqli_fetch_array($result)) {
+            $reservation_number = $row['reservation_number'];
+            $reservation_date = $row['reservation_date'];
+            $reservation_slot = $row['reservation_slot'];
+            $reservation_status = $row['reservation_status'];
+            $reserver_id = $row['reserver_id'];
+            $reservation_type = $row['reservation_type'];
+            $assigned_chair_number = $row['assigned_chair_number'];
+
+            $compromised_slots_array[$i]['reservations'][$reservations_index]['reservation_number'] = $reservation_number;
+            $compromised_slots_array[$i]['reservations'][$reservations_index]['reserver_id'] = $reserver_id;
+            $compromised_slots_array[$i]['reservations'][$reservations_index]['reservation_type'] = $reservation_type;
+            $compromised_slots_array[$i]['reservations'][$reservations_index]['reservation_status'] = $reservation_status;
+            $compromised_slots_array[$i]['reservations'][$reservations_index]['chair_number'] = $assigned_chair_number;
+
             if ($reservation_type == "email") {
-                $compromised_slots_array[$compromised_slot_index]['emailtotal'] ++;
+                $compromised_slots_array[$i]['emailtotal'] ++;
             }
+
             $reservations_index++;
         }
     }
+}
+
+function assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number) {
+    
+    // if $min_chair_number =  $max_chair_number, returns $chair_expressly_chosen = "Y" in return[0],
+    // otherwise "N"
+
+    // If $chair_expressly_chosen == "Y", checks the "requested_chair is still available and return
+    // $requested_chair in return[1], otherwise errors
+    // If $$chair_expressly_chosen == "Y", checks to see that there is still a barber available and
+    // returns a chair number at random in return[1],, otherwise errors
+
+    require ('../includes/booker_globals.php');
+    
+        $chair_expressly_chosen = "N";
+    if ($min_chair_number == $max_chair_number) {
+        $chair_expressly_chosen = "Y";
+        $assigned_chair_number = $min_chair_number;
+    }
+
+    $slot_still_free = false;
+
+    if ($chair_expressly_chosen == "Y") {
+
+        if ($slot_availability_array[$reservation_slot][$day - 1][$requested_chair_number] == "A") {
+            $slot_still_free = true;
+        }
+    } else {
+        
+        // build an array of free chairs for this slot (if there are any!)
+        $free_chairs = array();
+        $j = 0;
+        foreach ($slot_availability_array[$reservation_slot][$day - 1] as $key => $value) {
+            if ($value == "A") {
+                $free_chairs[$j] = $key;
+                $j++;
+            }
+        }
+
+        if (count($free_chairs) != 0) {
+            $slot_still_free = true;
+            // choose a chair_number at random
+            $assigned_chair_number = $free_chairs[mt_rand(0, count($free_chairs) - 1)];
+        }
+    }
+    
+    if (!$slot_still_free) {
+        echo "Sorry - this slot has just been booked by another customer - please choose a different slot";
+        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        exit(1);
+    }
+    
+    $return_array[0] = $chair_expressly_chosen;
+    $return_array[1] = $assigned_chair_number;
+    
+    return $return_array;
 }
 
 function prepareStringforXMLandJSONParse($input) {

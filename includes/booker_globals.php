@@ -8,8 +8,6 @@ global $number_of_slots_per_hour,
  $latest_working_slot,
  $day_availability_array,
  $slot_availability_array,
- $bookings_taken_array,      
- $number_of_slots_per_hour,
- $number_of_chairs,
- $compromised_slots_array;
+ $compromised_slots_array,
+ $number_of_slots_per_hour;
 
