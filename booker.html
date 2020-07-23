@@ -139,7 +139,7 @@
                         </div>
 
                         <div id = "telephonedisplay" style="display: none; padding: 1em; font-weight: bold;"> 
-                            <p>Enter the booker's telephone number in the box below, select a free appointment slot and then 
+                            <p>Enter the customer's contact details in the box below, select a free appointment slot and then 
                                 click it to confirm the reservation.</p>
 
                             <form target = "remember" autocomplete = "off"> 
@@ -149,7 +149,7 @@
                                        maxlength="40" size="15"
                                        onclick="telephonenumbererror.style.display = 'none';">
                             </form>
-                            <p id = "telephonenumbererror" style = "display: none; color: red;">Oops - please enter a valid telephone number - numbers and spaces only</p>
+                            <p id = "telephonenumbererror" style = "display: none; color: red;">Oops - please enter customer contact information</p>
                         </div> 
 
                         <div id = "changedisplay" style="display: none; padding: 1em; font-weight: bold;"> 
@@ -161,7 +161,7 @@
                         </div> 
 
                         <div id="checkdisplay" style = "display: none; padding: 1em; font-weight: bold;"> 
-                            <p>The list displayed below shows reservation slots that are currently over-booked
+                            <p>The list displayed below shows reservation slots that are over-booked
                                 given current holiday/absence and work-pattern settings.</<p>
                             <p>To send "please rebook" messages to <span style="color: red;">email bookers</span>, 
                                 check the first slot you want to rebook and then, while holding down the shift button,
@@ -206,16 +206,16 @@
                             </p>
                             <div id = "testpaypalconfirmbutton" style="margin-top: 1em; margin-left: auto; margin-right: auto;">
                                 <strong>Adult Haircut<br> £9.50<br></strong>
-                                <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'>  //**CONFIG REQUIRED**
-                                    <input type = 'hidden' name = 'business' value = 'a@b.c'> //**CONFIG REQUIRED**
-                                    <input type = 'hidden' name = 'notify_url' value = 'https:// ...  /booker/php/listener_sandbox.php'> //**CONFIG REQUIRED**
+                                <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'> <!-- **CONFIG REQUIRED** -->
+                                    <input type = 'hidden' name = 'business' value = 'mjoycemilburn@applebyarchaeology.org.uk'> <!-- **CONFIG REQUIRED** -->
+                                    <input type = 'hidden' name = 'notify_url' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/php/listener_sandbox.php'> <!-- **CONFIG REQUIRED** -->
                                     <input type = 'hidden' name = 'cmd' value = '_xclick'>
                                     <input type = 'hidden' name = 'item_name' value = 'Booker Items'>
                                     <input type = 'hidden' name = 'amount' value = "9.50">
                                     <input type = 'hidden' name = 'currency_code' value = 'GBP'>
                                     <input id = "papypalbookeremail" type = "hidden" NAME="email">
                                     <input id = "paypalcustomvariable" type = 'hidden' name = 'custom'>
-                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = ''https:// ...  /booker/booker.html?mode=paypalreturn'> //**CONFIG REQUIRED**
+                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=paypalreturn'> <!-- **CONFIG REQUIRED** -->
                                     <input type = 'image' src = 'https://www.paypalobjects.com/webstatic/en_US/i/buttons/pp-acceptance-large.png' alt = 'PayPal Acceptance' border = '0' name = 'submit'>
                                 </form>
 
@@ -287,6 +287,14 @@
         <script>
 
             var numberOfSlotsPerHour = 4; // IMPORTANT - the corresponding slot length must be an integer
+            var minChairNumber = 0;
+            var maxChairNumber = 10000;
+
+            // Global variables used to scope the view of takeup as either "this specific char" 
+            // (minChairNumber = maxChairNumber) or "all chairs" (minChairNumber = 0, maxChairNumber = some
+            // ridiculously large number). This arrangement is a great convenience when it comes to
+            // building an sql statement for "get ths specific one or get them all" - we can just say
+            // "WHERE chair_number >= minChairNumber and chair_number <= maxChairNumber"
 
             function myEnterFunction() {
 
@@ -371,6 +379,8 @@
                 oData.append("month", localMonth);
                 oData.append("mode", mode);
                 oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
+                oData.append("min_chair_number", minChairNumber);
+                oData.append("max_chair_number", maxChairNumber);
                 var oReq = new XMLHttpRequest();
                 oReq.open("POST", "php/booker_helpers.php", true); // returns overwrite each other otherwise
                 oReq.onload = function (oEvent) {
@@ -401,6 +411,48 @@
                     }
                 };
                 oReq.send(oData);
+            }
+
+            function handleStylistChangeOnMonthDisplay() {
+
+                // get the selected chair and stick it in the global chair-range limits
+                var selectedChairNumber = document.getElementById('stylistmonthpicklist').value;
+                if (selectedChairNumber == 0) {
+                    minChairNumber = 0;
+                    maxChairNumber = 10000;
+                } else {
+                    minChairNumber = maxChairNumber = selectedChairNumber;
+                }
+                displayMonth(todayYear, todayMonth);
+
+            }
+
+            function handleStylistChangeOnDayDisplay(year, month, day) {
+
+                // get the selected chair and stick it in the global chair-range limits
+                var selectedChairNumber = document.getElementById('stylistdaypicklist').value;
+                if (selectedChairNumber == 0) {
+                    minChairNumber = 0;
+                    maxChairNumber = 10000;
+                } else {
+                    minChairNumber = maxChairNumber = selectedChairNumber;
+                }
+                displayDay(year, month, day);
+
+            }
+
+            function handleStylistChangeOnCheckDisplay() {
+
+                // get the selected chair and stick it in the global chair-range limits
+                var selectedChairNumber = document.getElementById('stylistmonthpicklist').value;
+                if (selectedChairNumber == 0) {
+                    minChairNumber = 0;
+                    maxChairNumber = 10000;
+                } else {
+                    minChairNumber = maxChairNumber = selectedChairNumber;
+                }
+                buildCheckDisplay();
+
             }
 
             var bankholidaydisplaycontent = document.getElementById('bankholidaydisplaycontent');
@@ -520,7 +572,7 @@
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
                     if (oReq.status == 200) {
-                        
+
                         var response = oReq.responseText;
                         if (response.indexOf("%timed-out%") != -1)
                             dealWithTimeout(response);
@@ -543,6 +595,8 @@
                 var oData = new FormData(form);
                 oData.append("helper_type", "build_check_display");
                 oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
+                oData.append("min_chair_number", minChairNumber);
+                oData.append("max_chair_number", maxChairNumber);
                 var oReq = new XMLHttpRequest();
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
@@ -622,6 +676,9 @@
                 oData.append("day", day);
                 oData.append("mode", mode);
                 oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
+                oData.append("min_chair_number", minChairNumber);
+                oData.append("max_chair_number", maxChairNumber);
+
                 var oReq = new XMLHttpRequest();
                 oReq.open("POST", "php/booker_helpers.php", true);
                 oReq.onload = function (oEvent) {
@@ -850,7 +907,7 @@
                         var response = oReq.responseText;
                         if (response.indexOf("%timed-out%") != -1)
                             dealWithTimeout(response);
-                        
+
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
                             savepatternresult.style.display = "inline";
@@ -904,9 +961,12 @@
 
                 if (mode == "telephone") {
 
-                    // Check you've got a valid telephone number
+                    // Check you've got user contact information. Originally intended just to
+                    // take a telephone number but no harm in allowing name and other unformatted
+                    // details as well - 45 ch available in 15-ch width field
 
-                    if (!(/^[0-9 ]+$/.test(telephonenumber.value))) {
+                    // if (!(/^[0-9 ]+$/.test(telephonenumber.value))) { // obsolete validation
+                    if (telephonenumber.value == '') {
                         telephonenumbererror.style.display = "block";
                         telephonedisplay.scrollIntoView();
                         return;
@@ -923,12 +983,16 @@
                     oData.append("helper_type", "insert_reservation");
                     oData.append("reserver_id", emailaddress.value);
                     oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
+                    oData.append("min_chair_number", minChairNumber);
+                    oData.append("max_chair_number", maxChairNumber);
                 }
 
                 if (mode == "telephone") {
                     oData.append("helper_type", "insert_reservation");
                     oData.append("reserver_id", telephonenumber.value);
                     oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
+                    oData.append("min_chair_number", minChairNumber);
+                    oData.append("max_chair_number", maxChairNumber);
                 }
 
                 if (mode == "change" || mode == "rebook") {
@@ -936,6 +1000,8 @@
                     oData.append("outgoing_reservation_number", cancelledReservationNumber);
                     oData.append("mode", "mode");
                     oData.append("number_of_slots_per_hour", numberOfSlotsPerHour);
+                    oData.append("min_chair_number", minChairNumber);
+                    oData.append("max_chair_number", maxChairNumber);
                 }
 
                 oData.append("mode", mode);
@@ -1113,16 +1179,20 @@
             function sendRebookMessages() {
 
                 // use the checked checkDisplay elements to "issue_reservation_apologies" actions.
-                // These include setting the first email booking in each of the affected slots to
-                // "postponed" and sending email with links to invite rebooking. Note, we put hidden
+                // These include either setting the first email booking in each of the affected slots to
+                // "postponed" and sending email with links to invite rebooking or rebooking
+                // the affected slots with different stylists. In eigher case, however,
+                // the customer will receive an apologetic email. Note, we put hidden
                 // elements in the return from buildCheckDisplay to pass bits of the info in the
                 // server-based compromised_slot_array back to the pc. The total number of entries
                 // in the check display for each month is in a hidden element with id 
                 // 'checkdisplaylength. For each row in the checkdisplay, the
                 //  corresponding slot_number, reservation_date and the number of associateed
                 //  email reservations is in a hidden element crkey$row as a comma-separated string
-                //  - eg 3, 2020-05-06,3 - this says slot 3 on 5th Jue 2020 has 3 email reservations
-                //  (though note there may also be telephone reservations for this slot)
+                //  - eg 3, 2020-05-06,4 - this says slot 3 on 5th Jue 2020 has 4 email reservations
+                //  (though note there may also be telephone reservations for this slot). Note that
+                //  regardless of the number of email bookers, only the first will actually
+                //  be picked on
                 //
 
                 // first work out how many messages you're about to send and that the user is happy
@@ -1139,11 +1209,11 @@
                 }
 
                 if (emailTotal == 0) {
-                    alert("Oops - no cancellations are required for this selection");
+                    alert("Oops - no messages are required for this selection");
                     return;
                 }
 
-                if (!confirm("You are about to cancel " + emailTotal + " reservations. Are you happy to proceed?")) {
+                if (!confirm("You are about to amend " + emailTotal + " reservations. Are you happy to proceed?")) {
                     return;
                 }
 
@@ -1186,6 +1256,7 @@
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
                         } else {
+                            buildCheckDisplay();
                             document.getElementById('checkdisplayemailcancellationresult').style.display = "block";
                         }
                     }

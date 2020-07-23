@@ -189,7 +189,7 @@ compromise and can be readily replaced by a more conventional login if circumsta
                 // is one and, if so, add it to the booker.html call so we get 
                 // back to the point that hit the timeout
 
-                var target = "booker.html?ver=32.2";
+                var target = "booker.html?ver=40.1";
                 var returnParam = getUrlParameter("return");
                 if (returnParam == "") {
                     target += "&mode=viewer";
