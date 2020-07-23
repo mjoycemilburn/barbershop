@@ -21,7 +21,6 @@ require ('../includes/send_email_via_postmark.php');
 require ('../includes/booker_functions.php');
 require ('../includes/booker_constants.php');
 
-
 $custom = $_POST['custom'];
 
 // Huge problems with extracting the constituent elements of the custom variable. There's
@@ -51,12 +50,33 @@ $reservation_number = $pieces[4];
 $reserver_id = $pieces[5];
 $number_of_slots_per_hour = $pieces[6];
 
-$appointment_string = slot_date_to_string($reservation_slot, $date, $number_of_slots_per_hour);
-error_log("$date ");
+// get the stylist-assignment for the appointment
 
-$mailing_message = "Thank you for your reservation. We look forward to seeing you at " .
-                $appointment_string .
-                ". Your booking reference is " . $reservation_number;
+$sql = "SELECT 
+            chair_owner
+        FROM ecommerce_work_patterns wps
+        NATURAL JOIN  ecommerce_reservations rs
+        WHERE 
+            rs.reservation_number = '$reservation_number' AND
+            wps.chair_number = rs.assigned_chair_number;";
+
+$result = mysqli_query($con, $sql);
+
+if (!$result) {
+    error_log("Oops - database access %failed%. $page_title Loc 1. Error details follow<br><br> " . mysqli_error($con));
+    require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+    exit(1);
+}
+
+$row = mysqli_fetch_array($result, MYSQLI_BOTH);
+
+$chair_owner = $row['chair_owner'];
+
+$appointment_string = slot_date_to_string($reservation_slot, $date, $number_of_slots_per_hour);
+
+$mailing_message = "Thank you for your reservation with $chair_owner. We look forward to seeing you at " .
+        $appointment_string .
+        ". Your booking reference is " . $reservation_number;
 
 $mailing_title = "Your reservation at " . SHOP_NAME;
 
@@ -65,14 +85,11 @@ $mailing_address = $reserver_id;
 $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
 
 //error_log("$mailing_message $mailing_title $mailing_address $mailing_result"); 
-
 // If postmark didn't manage to send the customer a confirmation mail we have a bit of a problem
 // because the customer has paid now but has no proof. There's an unconfirmed reservation on the
 // database though, so best confirm that before it disappears. What's really tricky here is that
 // if Postmark can't send messages to the customer it may not be able to send messages to the 
 // system management either - need to think about this. ANyway, for the present, best just carry on..
-
-
 // change the status of the reservation to "C" on the ecommerce_reservations database
 
 $sql = "UPDATE ecommerce_reservations SET
@@ -86,9 +103,9 @@ if (!$result) {
     error_log("Oops - database access %failed%. $page_title Loc 1. Error details follow<br><br> " . mysqli_error($con));
     require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
     exit(1);
-} else {
-    echo "Save successful";
-    require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
 }
+
+require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+
 
 

@@ -37,7 +37,7 @@
 # 'build_bank_holiday_table_for_month_display'   -   create display table for supplied year (yyyy), month (1 - 12)
 #                                                    showing bank holidays
 #                                                    
-# 'f'             -   toggle bank holiday record  in and out of existence for supplied date                                               
+# 'toggle_bank_holiday'             -   toggle bank holiday record  in and out of existence for supplied date                                               
 #                                                    
 # 'build_staff_holiday_table_for_month_display'   -   create display table for supplied year (yyyy), month and chair_number
 #                                                    showing staff absence  
@@ -93,12 +93,60 @@ if ($helper_type == 'build_calendar_month_display') {
     $month = $_POST['month'];
     $mode = $_POST['mode'];
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+    $min_chair_number = $_POST['min_chair_number'];
+    $max_chair_number = $_POST['max_chair_number'];
+
+    // If this is the current month, begin by building a "pick-list" to allow 
+    // the customer to choose a stylist
+
+    $return = '';
+
+    $current_month = date("n");
+    if ($month == $current_month) {
+
+        $sql = "SELECT 
+                chair_number,
+                chair_owner
+            FROM ecommerce_work_patterns;";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 1. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $return = "<form style = 'margin-bottom: 1em;'>
+                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Preferred Barber : </label>
+                <select id='stylistmonthpicklist' onchange = 'handleStylistChangeOnMonthDisplay($year, $month);'>";
+
+        if ($min_chair_number != $max_chair_number) {
+            $return .= "<option selected value = '0'>Any</option>";
+        } else {
+            $return .= "<option value = '0'>Any</option>";
+        }
+
+        while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
+
+            $chair_number = $row['chair_number'];
+            $chair_owner = $row['chair_owner'];
+
+            if (($min_chair_number == $max_chair_number) && ($chair_number == $min_chair_number)) {
+                $return .= "<option selected value = '$chair_number'>$chair_owner</option>";
+            } else {
+                $return .= "<option value = '$chair_number'>$chair_owner</option>";
+            }
+        }
+
+        $return .= "</select></form>";
+    }
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
     $length_of_month = date("t", strtotime("$year-$month"));
 
-    $return = '<p>Availability for <strong>' . $month_name_array[$month - 1] . '</strong> ' . $year . '</p>
+    $return .= '<p>Availability for <strong>' . $month_name_array[$month - 1] . '</strong> ' . $year . '</p>
                     <p><img style="height: 1.25em;" src = "img/media-stop-green.svg"> = days with free slots</p>';
 
     $return .= '
@@ -115,7 +163,7 @@ if ($helper_type == 'build_calendar_month_display') {
         <tbody>
         <tr>';
 
-    build_availability_variables_for_month($year, $month);
+    build_availability_variables_for_month($year, $month, $min_chair_number, $max_chair_number);
 
 // unless the mode is "viewer" (when we may want to see historic bookings), only show rows 
 // referencing current dates for the current month - otherwise show the whole month
@@ -181,6 +229,47 @@ if ($helper_type == 'build_calendar_day_display') {
     $day = $_POST['day'];
     $mode = $_POST['mode'];
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+    $min_chair_number = $_POST['min_chair_number'];
+    $max_chair_number = $_POST['max_chair_number'];
+
+    // Begin by building a "pick-list" to allow the customer to choose a stylist
+
+    $sql = "SELECT 
+                chair_number,
+                chair_owner
+            FROM ecommerce_work_patterns;";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 2. Error details follow<br><br> " . mysqli_error($con);
+        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        exit(1);
+    }
+
+    $return = "<form style='margin-bottom: 1em;'>
+                <label for='stylistdaypicklist' name='stylistdaypicklist'>Preferred Barber : </label>
+                <select id='stylistdaypicklist' onchange = 'handleStylistChangeOnDayDisplay($year, $month, $day);'>";
+
+    if ($min_chair_number != $max_chair_number) {
+        $return .= "<option selected value = '0'>Any</option>";
+    } else {
+        $return .= "<option value = '0'>Any</option>";
+    }
+
+    while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
+
+        $chair_number = $row['chair_number'];
+        $chair_owner = $row['chair_owner'];
+
+        if (($min_chair_number == $max_chair_number) && ($chair_number == $min_chair_number)) {
+            $return .= "<option selected value = '$chair_number'>$chair_owner</option>";
+        } else {
+            $return .= "<option value = '$chair_number'>$chair_owner</option>";
+        }
+    }
+
+    $return .= "</select></form>";
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
@@ -189,7 +278,7 @@ if ($helper_type == 'build_calendar_day_display') {
 # build 'availability' array for the slots for this date from the ecommerce_reservations,
 # day_override and slot_override tables
 
-    build_availability_variables_for_month($year, $month);
+    build_availability_variables_for_month($year, $month, $min_chair_number, $max_chair_number);
 
     $date_string = $year . "-" . $month . "-" . $day;
     $date = strtotime($date_string);
@@ -200,15 +289,35 @@ if ($helper_type == 'build_calendar_day_display') {
     $now_minutes = date("i"); // (00-59);
     $next_available_slot = $now_hour * $number_of_slots_per_hour + floor($now_minutes / (60 / $number_of_slots_per_hour)) + 1;
 
-    $return = '<p>Availability for ' . date("l", $date) . " " . date("j", $date) . date("S", $date) . " " . date("F", $date) . " " . $year . '</p> 
-                    <p>
-                        <img  style="height: 1.25em;" src = "img/media-stop-green.svg"> - avble
-                        <img style = "height: 1.25em; margin-left: 2em;" src = "img/media-stop-partial-green.svg"> - limited
-                        <img style = "height: 1.25em; margin-left: 2em;" src = "img/media-stop-red.svg"> - unavble
+    $datetime = new DateTime($date_string); // see https://stackoverflow.com/questions/5883571/get-next-and-previous-day-with-php
+    $interval = new DateInterval('P1D');
+    $datetime->sub($interval);
+    $pre_day = $datetime->format("j");
+    $pre_month = $datetime->format("n");
+    $pre_year = $datetime->format("Y");
+    $datetime->add($interval);
+    $datetime->add($interval);
+    $post_day = $datetime->format("j");
+    $post_month = $datetime->format("n");
+    $post_year = $datetime->format("Y");
+
+    $return .= '<p><button onclick = "displayDay(' . $pre_year . ',' . $pre_month . ',' . $pre_day . ')">
+                        <img src="img/caret-left.svg">
+                    </button>&nbsp;
+                    Availability : ' . date("D", $date) . " " . date("j", $date) . date("S", $date) . " " . date("M", $date) . " " . $year . '&nbsp;
+                    <button onclick = "displayDay(' . $post_year . ',' . $post_month . ',' . $post_day . ')">
+                        <img src="img/caret-right.svg">
+                    </button
+                </p> 
+                <p><img  style="height: 1.25em;" src = "img/media-stop-green.svg"> - avble
+                       <img style = "height: 1.25em; margin-left: 2em;" src = "img/media-stop-partial-green.svg"> - limited
+                       <img style = "height: 1.25em; margin-left: 2em;" src = "img/media-stop-red.svg"> - unavble
                     </p>';
 
     $return .= '
-    <table class="table" style="border-collapse: separate; border-spacing: .5vw;">
+    <table class="table" style="border-collapse: separate;
+        border-spacing: .5vw;
+        ">
         <thead>
             <th></th>';
 
@@ -230,27 +339,37 @@ if ($helper_type == 'build_calendar_day_display') {
     $earliest_working_hour = floor($earliest_working_slot / $number_of_slots_per_hour);
     $latest_working_hour = floor($latest_working_slot / $number_of_slots_per_hour);
 
-
     for ($i = $earliest_working_hour; $i <= $latest_working_hour; $i++) {
 
-        $return .= '<tr><td style="background: gainsboro;">' . $i . '.00</td>';
+        $return .= '<tr><td style="background: gainsboro;
+        ">' . $i . '.00</td>';
         for ($j = 0; $j < $number_of_slots_per_hour; $j++) {
 
             $reservation_slot = $i * $number_of_slots_per_hour + $j;
-
-            if ($requested_date == $now_date && $reservation_slot < $next_available_slot) {
 // block out expired slots
-                $return .= '<td></td>';
+            if ($requested_date == $now_date && $reservation_slot < $next_available_slot) {
+                // but if mode is "viewer" still make them clickable
+                if ($mode == "viewer") {
+                    $return .= '<td onclick = "viewSlot(' . $year . ', ' . $month . ', ' . $day . ', ' . $reservation_slot . ');"></td>';
+                } else {
+                    $return .= '<td></td>';
+                }
             } else {
 
-                $availability = $slot_availability_array[$reservation_slot][$day - 1];
-                $takeup = $bookings_taken_array[$reservation_slot][$day - 1];
-                $headroom = $availability - $takeup;
+                $staffed = count($slot_availability_array[$reservation_slot][$day - 1]);  // this is the number of chairs that are staffed for this slot
+                $takeup = 0; // this is the number of chairs that are already booked for this slot
+                foreach ($slot_availability_array[$reservation_slot][$day - 1] as $key => $value) {
+
+                    if ($value == "B") {
+                        $takeup ++;
+                    }
+                }
+                $headroom = $staffed - $takeup;
 
                 if ($headroom <= 0) {
                     $background = "red";
                 } else {
-                    if ($availability == 1) {
+                    if ($staffed == 1) {
                         $background = "aquamarine";
                     } else {
                         if ($takeup > 0) {
@@ -262,15 +381,16 @@ if ($helper_type == 'build_calendar_day_display') {
                 }
 
                 if ($mode == "viewer") {
-                    $onclick = 'onclick = "viewSlot(' . $year . ',' . $month . ',' . $day . ',' . $reservation_slot . ');"';
+                    $onclick = 'onclick = "viewSlot(' . $year . ', ' . $month . ', ' . $day . ', ' . $reservation_slot . ');"';
                 } else {
                     if ($headroom == 0) {
                         $onclick = "";
                     } else {
-                        $onclick = 'onclick = "bookSlot(' . $year . ',' . $month . ',' . $day . ',' . $reservation_slot . ');"';
+                        $onclick = 'onclick = "bookSlot(' . $year . ', ' . $month . ', ' . $day . ', ' . $reservation_slot . ');"';
                     }
                 }
-                $return .= '<td style = "background: ' . $background . ';" ' . $onclick . '</td>';
+                $return .= '<td style = "background: ' . $background . ';
+        " ' . $onclick . '</td>';
             }
         }
         $return .= '</tr>';
@@ -279,8 +399,9 @@ if ($helper_type == 'build_calendar_day_display') {
     $return .= '
             </tbody>
         </table>
-        <button id = "dayviewcancelbutton" style="margin-bottom: 1em;" onclick="displayMonth(' . $year . ',' . $month . ');">Cancel</button>';
-
+        <button id = "dayviewcancelbutton" style="margin-bottom: 1em;" 
+            onclick="dayViewRange = \'historic\'; displayMonth(' . $year . ', ' . $month . ');">Cancel</button>';
+    // The dayViewRange setting above resets the toggle so that the monthView starts with current month
     echo $return;
 }
 
@@ -295,6 +416,9 @@ if ($helper_type == 'insert_reservation') {
     $reserver_id = $_POST['reserver_id'];
     $mode = $_POST['mode'];
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+
+    $min_chair_number = $_POST['min_chair_number'];
+    $max_chair_number = $_POST['max_chair_number'];
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
@@ -325,17 +449,16 @@ if ($helper_type == 'insert_reservation') {
         exit(1);
     }
 
-    build_availability_variables_for_month($year, $month);
+    build_availability_variables_for_month($year, $month, $min_chair_number, $max_chair_number);
 
-// check the availability for this slot
+// check the continued availability for this slot  
+    
+    $requested_chair_number = '';
+    $results_array = assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number);
+    $chair_expressly_chosen = $results_array[0];
+    $assigned_chair_number = $results_array[1];
 
-    if ($slot_availability_array[$reservation_slot][$day - 1] - $bookings_taken_array[$reservation_slot][$day - 1] <= 0) {
-        echo "Sorry - this slot has just been booked by another customer - please choose another";
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-        exit(1);
-    }
-
-// OK - now clear to create a new reservation
+// OK - if there was a problem, would already have errored back to booker.html. Now clear to create a new reservation
 
     $sql = "INSERT INTO ecommerce_reservations (
                 reservation_date,
@@ -343,6 +466,8 @@ if ($helper_type == 'insert_reservation') {
                 reservation_status,
                 reserver_id,
                 reservation_type,
+                assigned_chair_number,
+                chair_expressly_chosen,
                 reservation_time_stamp)
             VALUES (
                 '$reservation_date', 
@@ -356,8 +481,9 @@ if ($helper_type == 'insert_reservation') {
 
     $sql .= "'$reserver_id',
                 '$mode',
+                '$assigned_chair_number',
+                '$chair_expressly_chosen',    
                 '$reservation_time_stamp');";
-
 
     $result = mysqli_query($con, $sql);
 
@@ -400,40 +526,27 @@ if ($helper_type == 'change_reservation') {
     $reservation_slot = $_POST['reservation_slot'];
     $mode = $_POST['mode'];
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+    $min_chair_number = $_POST['min_chair_number'];
+    $max_chair_number = $_POST['max_chair_number'];
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
     $reservation_date = $year . "-" . $month . "-" . $day;
     $reservation_time_stamp = date('Y-m-d H:i:s');
 
-    $sql = "START TRANSACTION;";
+    build_availability_variables_for_month($year, $month, $min_chair_number, $max_chair_number);
 
-    $result = mysqli_query($con, $sql);
-    if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 11. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-        exit(1);
-    }
-
-    build_availability_variables_for_month($year, $month);
-
-// check the availability for this slot
-
-    if ($slot_availability_array[$reservation_slot][$day - 1] == 0) {
-        echo "Sorry - this slot has just been booked by another customer - please choose another";
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-        exit(1);
-    }
-
-// OK - now need to check the status of the outgoing reservation:
+// OK - first check the status of the outgoing reservation:
 // 
-// for change mode, the type needs to be email and the status needs to be "P" (postponed)
+// for "change" mode, the type needs to be email and the status needs to be "P" (postponed)
 // for "rebook" mode, the type can be anything and the status need to be "C"  
 
     $sql = "SELECT
                 reservation_status,
                 reserver_id,
-                reservation_type
+                reservation_type,
+                assigned_chair_number,
+                chair_expressly_chosen
             FROM ecommerce_reservations
             WHERE
                 reservation_number = '$outgoing_reservation_number';";
@@ -451,7 +564,8 @@ if ($helper_type == 'change_reservation') {
     $reservation_status = $row['reservation_status'];
     $reserver_id = $row['reserver_id'];
     $reservation_type = $row['reservation_type'];
-    $reservation_status = $row['reservation_status'];
+    $assigned_chair_number = $row['assigned_chair_number'];
+    $chair_expressly_chosen = $row['chair_expressly_chosen'];
 
     if (($mode == "change" && $reservation_status == "P") ||
             ($mode == "rebook" && $reservation_status == "C")) {
@@ -462,7 +576,23 @@ if ($helper_type == 'change_reservation') {
         exit(1);
     }
 
-// OK - now clear to delete the outgoing reservation and create the new one
+// Now find a chair for this customer - if there still is one!
+    
+    $results_array = assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number);
+    $chair_expressly_chosen = $results_array[0];
+    $assigned_chair_number = $results_array[1];
+    
+// OK, if there was a problem, we'd have errored back to booker.html by now, so start a transaction to
+// delete the outgoing reservation and create the new one
+    
+    $sql = "START TRANSACTION;";
+
+    $result = mysqli_query($con, $sql);
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 11. Error details follow<br><br> " . mysqli_error($con);
+        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        exit(1);
+    }
 
     $sql = "DELETE FROM ecommerce_reservations
             WHERE
@@ -484,6 +614,8 @@ if ($helper_type == 'change_reservation') {
                 reservation_status,
                 reserver_id,
                 reservation_type,
+                assigned_chair_number,
+                chair_expressly_chosen,
                 reservation_time_stamp)
             VALUES (
                 '$reservation_date', 
@@ -491,6 +623,8 @@ if ($helper_type == 'change_reservation') {
                 'C',
                 '$reserver_id',
                 '$reservation_type',
+                '$assigned_chair_number',
+                '$chair_expressly_chosen',
                 '$reservation_time_stamp')";
 
     $result = mysqli_query($con, $sql);
@@ -545,23 +679,51 @@ if ($helper_type == 'build_slot_reservations_display') {
     $day = $_POST['day'];
     $reservation_slot = $_POST['reservation_slot'];
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+    build_availability_variables_for_month($year, $month, 1, 10000);
+    pr($slot_availability_array[$reservation_slot][$day-1]);
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
     $reservation_date = $year . "-" . $month . "-" . $day;
 
-# build html code to display the details of all reservation for the selected slot
+# build html code to display the details of all reservation for the selected slot Start
+# by building a table of chair-owner names.
+
+    $sql = "SELECT
+                chair_number,
+                chair_owner
+            FROM ecommerce_work_patterns;";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 17. Error details follow<br><br> " . mysqli_error($con);
+        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        exit(1);
+    }
+
+    $chair_owners = array();
+
+    while ($row = mysqli_fetch_array($result)) {
+
+        $chair_number = $row['chair_number'];
+        $chair_owner = $row['chair_owner'];
+        $chair_owners["'$chair_number'"] = $chair_owner;
+    }
 
     $sql = "SELECT
                 reservation_number,
                 reservation_status,
                 reserver_id,
                 reservation_type,
+                assigned_chair_number,
                 reservation_time_stamp
             FROM ecommerce_reservations
             WHERE
                 reservation_date = '$reservation_date' AND
-                reservation_slot = '$reservation_slot';";
+                reservation_slot = '$reservation_slot'
+            ORDER BY 
+                assigned_chair_number ASC;";
 
     $result = mysqli_query($con, $sql);
 
@@ -583,6 +745,7 @@ if ($helper_type == 'build_slot_reservations_display') {
             $reservation_status = $row['reservation_status'];
             $reserver_id = $row['reserver_id'];
             $reservation_type = $row['reservation_type'];
+            $assigned_chair_number = $row['assigned_chair_number'];
             $reservation_time_stamp = $row['reservation_time_stamp'];
 
             $source = "Online Booker (prepaid)";
@@ -592,8 +755,10 @@ if ($helper_type == 'build_slot_reservations_display') {
             $booking_time_object = strtotime($reservation_time_stamp);
             $booking_time = date('Y-m-d at H:i:s', $booking_time_object);
 
+            $chair_owner = $chair_owners["'$assigned_chair_number'"];
+
             $return .= "
-                        <strong>Reservation $count:</strong>
+                        <strong>Chair $assigned_chair_number : $chair_owner</strong>
                         <p>Contact details : $reserver_id</p>
                         <p>Reservation Reference : $reservation_number</p>
                         <p>Source : $source</p>
@@ -1273,6 +1438,8 @@ if ($helper_type == "save_pattern") {
 
 if ($helper_type == "build_check_display") {
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+    $min_chair_number = $_POST['min_chair_number'];
+    $max_chair_number = $_POST['max_chair_number'];
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
@@ -1283,8 +1450,47 @@ if ($helper_type == "build_check_display") {
     $current_month = $today_month;
     $current_year = $today_year;
 
+    // Begin by building a "pick-list" to allow 
+    // the customer to choose a stylist
+
     $return = '';
-    $check_display_length = 0;
+
+    $sql = "SELECT 
+                chair_number,
+                chair_owner
+            FROM ecommerce_work_patterns;";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 33a. Error details follow<br><br> " . mysqli_error($con);
+        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        exit(1);
+    }
+
+    $return = "<form style = 'margin-bottom: 1em;'>
+                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Preferred Barber : </label>
+                <select id='stylistmonthpicklist' onchange = 'handleStylistChangeOnCheckDisplay();'>";
+
+    if ($min_chair_number != $max_chair_number) {
+        $return .= "<option selected value = '0'>Any</option>";
+    } else {
+        $return .= "<option value = '0'>Any</option>";
+    }
+
+    while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
+
+        $chair_number = $row['chair_number'];
+        $chair_owner = $row['chair_owner'];
+
+        if (($min_chair_number == $max_chair_number) && ($chair_number == $min_chair_number)) {
+            $return .= "<option selected value = '$chair_number'>$chair_owner</option>";
+        } else {
+            $return .= "<option value = '$chair_number'>$chair_owner</option>";
+        }
+    }
+
+    $return .= "</select></form>";
 
 // Although the code below has been written with the abiility to report on an 
 // arbitarry range of months, it seems more practical to limit it to just the
@@ -1292,37 +1498,42 @@ if ($helper_type == "build_check_display") {
 
     $number_of_months_in_report = 2;
 
+    $check_display_length = 0;
+
     for ($i = 0; $i < $number_of_months_in_report; $i++) {
 
-        build_availability_variables_for_month($current_year, $current_month);
+        build_availability_variables_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
 
 // When a member of staff goes sick, a full appointment book represents a major 
 // administrative problem. Suddenly there are a bunch of slots = possibly spanning
 // a whole block of days - with booked appointmnts that can't be fulfilled. Somehow
 // these bookers have to be contacted so that they don't turn up and make a fuss. 
 // But which ones? For a given slot you have both telephone and email (prepaid!)
-// bookers. You may still have some staff to partially service the slot, so which 
-// customers do you tell you're going to have to rebook them? Email (prepaid) ones
-// are easier because we can email them in a single batch and invite them to rebook
+// bookers. You may still have some free staff to partially service the slot, so which 
+// customers are you going to prioritise? It's easier to think about which customers
+// are easiest to put off. Email (prepaid) customers are by far the easiest
+// because you can email them in a single batch and invite them to rebook
 // /themselves/ - ie put the ball in their court. There's no easy way out for telpehone
 // bookers - you're going to have to contact them individually and rebook them
 // over the phone. Groan!
 // What's clear at this point is that we're going to have to deal with the appointments
 // for a slot as a /group/ (eg, we need to know how many of them are emails and how 
-// many are telephone), but at the moment they only exist as separate reservationrecords
+// many are telephone), but at the moment they only exist as separate reservation records
 // on the database, and this makes them very difficult to deal with. So, on this first 
 // pass through the database, create a more useful data structure, compromised_slots,
 // to group them up by slot - see comments in the "build" function below for details
 // of the structure of compromised_slots.    
 
-        build_compromised_slot_array_for_month($current_year, $current_month);
+        build_compromised_slot_array_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
 
 // OK, let's test this out. Suppose we want to build output for the current month
-// range displaying compromised slots for each month inviting manual re-book.
-// scoot through the whole compromised_slots array for each month - not very efficient
-// but things are complicated enough as it is and at least everythng is in memory now.
-// We might in future take advantage of the fact that the entries are in date order, but not
-// just now.
+// range displaying compromised slots for each month so we can invite the first email
+// customer for the slot to re-book themselves.
+// 
+// Scoot through the whole compromised_slots array for each month. This is not terribly
+// efficient of course but things are complicated enough as it is and at least everything
+// is in memory now. We might in future take advantage of the fact that the entries are
+// in date order, but notjust now, eh.
 
         $current_month_alpha = $month_name_array[$current_month - 1];
         $number_of_compromised_slots_for_this_month = 0;
@@ -1341,10 +1552,12 @@ if ($helper_type == "build_check_display") {
             $hour_padded = sprintf('%02d', $hour);  // pad out with leading zeros : neat
             $minutes_padded = sprintf('%02d', $minutes);
 
-            $staffing_required = count($compromised_slots_array[$j]['reservations']);
-            $staffing_available = $slot_availability_array[$reservation_slot][$reservation_day - 1];
-            if ($staffing_available < 0)
-                $staffing_available = 0;
+            $compromised_reservations_total = count($compromised_slots_array[$j]['reservations']);
+            if ($compromised_reservations_total > 1) {
+                $reason = "Several chairs are absent";
+            } else {
+                $reason = "Chair " . $compromised_slots_array[$j]['reservations'][0]['assigned_chair_number'] . " is absent";
+            }
 
 // The format of the checkbox id for a compromised slot is "cr" + cr$reservation_slot. 
 // Tuck the slot, date and number of email reservations for the slot away as comma-separated 
@@ -1352,12 +1565,9 @@ if ($helper_type == "build_check_display") {
 
             $return .= "
                     <p style='margin-bottom: 1em;'>
-                        <input type = 'checkbox' id = 'cr$j' onclick = 'handleCheckClick($j);'>
-                           <span id = 'crkey$j' style = 'display: none;'>$reservation_slot,$reservation_date,$reservation_emailtotal</span>
-                           <span> The $hour_padded:$minutes_padded slot on $reservation_date is under-resourced : 
-                                    staffing required - $staffing_required" . " : " . "
-                                    staffing available - $staffing_available
-                            </span>
+                        <input type = 'checkbox' id = 'cr$check_display_length' onclick = 'handleCheckClick($check_display_length);'>
+                           <span id = 'crkey$check_display_length' style = 'display: none;'>$reservation_slot,$reservation_date,$reservation_emailtotal</span>
+                           <span> The $hour_padded:$minutes_padded slot on $reservation_date is under-resourced : $reason</span>
                      </p>";
 
             $check_display_length ++;
@@ -1404,81 +1614,159 @@ if ($helper_type == 'issue_reservation_apologies') {
     if (logged_in("check")) {
 
 // This routine messages the first "email" booker for each over-booked slots in a given date range. The email
-// tells the customer that due to circumstances etc you can't fulfill their reservation. The
-// message includes a link referencing their original reservation number inviting them to rebook. 
-// Meanwhile their original reservation is marked as "postponed". The shop management would
-// repeat this as necessary, depending on how many staff you were down. Of course, this doesn't
-// completely fix the problem (a compromised slot might be telephone bookers, for example).
+// tells the customer that due to circumstances etc you can't fulfill their reservation. If the compromised slot
+// isn't for a "expressly-chosen" stylist, there's the possibility that another stylist might be available
+// to take the booking. In this case, the assigned chair in the compromised booking is simply switched to
+// to another stylist and the customer is sent an explanatory email. However, if either the compromised slot has
+// been expressly chosen or there's no spare capacity, then the apology email includes a link referencing
+// the original reservation number inviting the inconveniencd customer  to rebook. 
+// Meanwhile the original reservation is marked as "postponed". The shop management would
+// repeat this as necessary, depending on how many staff they were down. Of course, this doesn't
+// completely fix the problem (a compromised slot might contain only telephone bookers, for example,
+// and so this would continue to pop up in the "check" display until you manually fix them).
 // However it's a start. Once you'd cleared as many email bookers as you could, you'd get onto 
 // the phone! To help things along, the compromised telephone reservations would be displayed
 // as "change" links so, with the booker on the phone you can rebook them just by clicking 
-// on their reservation entry in the check  list
+// on their reservation entry in the check  list.
+// Get the JSON containing the list of compromised slots
 
         $slot_rows_string = $_POST['slot_rows'];
         $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
 
+        // Begin by building an array of chair_owner names
+
+        $sql = "SELECT 
+                chair_number,
+                chair_owner
+            FROM ecommerce_work_patterns;";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 2. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $chair_owners = array();
+
+        while ($row = mysqli_fetch_array($result)) {
+
+            $chair_number = $row['chair_number'];
+            $chair_owner = $row['chair_owner'];
+            $chair_owners[$chair_number - 1] = $chair_owner;
+        }
+
         $slot_rows_array = json_decode($slot_rows_string, true);
+
+        // Go through the slots month-wise, building availability_variable and compromised_slot details for each
+        // month so that we can see all the barbers that are available for each and, with luck, rebook the slot. 
+        // We want the widest possible view of availability, so set min and max chair-number variables to their limits
+
+
+        $min_chair_number = 0;
+        $max_chair_number = 10000;
+
+        $last_month = '';
+        $last_year = '';
 
         for ($i = 0; $i < count($slot_rows_array); $i++) {
 
             $reservation_slot = $slot_rows_array[$i]['slot'];
             $reservation_date = $slot_rows_array[$i]['slotdate'];
+            $reservation_day = date("j", strtotime($reservation_date));
 
-            $sql = "SELECT
-                    reservation_number,
-                    reservation_date,
-                    reservation_slot,
-                    reservation_status,
-                    reserver_id,
-                    reservation_type
-                FROM ecommerce_reservations
-                WHERE
-                    reservation_date = '$reservation_date' AND 
-                    reservation_slot  = '$reservation_slot';";
+            $current_month = date("n", strtotime($reservation_date));
+            $current_year = date("Y", strtotime($reservation_date));
 
-            $resulta = mysqli_query($con, $sql);
+            if ($current_month != $last_month) {
 
-            if (!$resulta) {
-                echo "Oops - database access %failed%. $page_title Loc 34. Error details follow<br><br> " . mysqli_error($con);
-                require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                exit(1);
+                build_availability_variables_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
+                build_compromised_slot_array_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
+
+                $last_month = $current_month;
+                $last_year = $current_year;
             }
 
-            while ($rowa = mysqli_fetch_array($resulta, MYSQLI_BOTH)) {
+            // get the reservation that is causing the problem. First find its index in the compromised_slots array
 
-                $reservation_number = $rowa['reservation_number'];
-                $reserver_id = $rowa['reserver_id'];
-                $reservation_type = $rowa['reservation_type'];
+            for ($j = 0; $j < count($compromised_slots_array); $j++) {
+                if ($compromised_slots_array[$j]['slot'] == $reservation_slot && $compromised_slots_array[$j]['date'] == $reservation_date) {
+                    $compromised_target_index = $j;
+                }
+            }
 
-                if ($reservation_type == 'email') {
+            $problem_reservation_number = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_number'];
+            $problem_reserver_id = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reserver_id'];
+            $problem_reservation_type = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_type'];
+            $problem_reservation_status = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_status'];
+            $problem_assigned_chair_number = $compromised_slots_array[$compromised_target_index]['reservations'][0]['assigned_chair_number'];
+            $problem_chair_expressly_chosen = $compromised_slots_array[$compromised_target_index]['reservations'][0]['chair_expressly_chosen'];
 
-// OK - we're in business - cancel and email this booker
+            if ($problem_reservation_type == "email") { // if email we're going to send an email (tho not sure what sort yet), otherwise nothing to do
+                // has the booker expressly chosen this sylist?
+                $failed_to_rebook = true;
+                if ($problem_chair_expressly_chosen == "N") { //Ok, there's a chance we can rebook this
+                    // is there an unbooked barber for this slot? If so, switch the problem reservation to this chair and send a mild apology
+                    foreach ($slot_availability_array[$reservation_slot][$reservation_day - 1] as $key => $value) {
 
-                    $sql = "START TRANSACTION;";
+                        if ($value == "A") { //hooray - can rebook
+                            $failed_to_rebook = false;
+                            $free_chair_number = $key;
 
-                    $resultb = mysqli_query($con, $sql);
-                    if (!$resultb) {
-                        echo "Oops - database access %failed%. $page_title Loc 35. Error details follow<br><br> " . mysqli_error($con);
-                        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                        exit(1);
+                            // switch chair to free stylist and send apologetic "rebooked" mail
+
+                            $sql = "UPDATE ecommerce_reservations SET
+                                        assigned_chair_number = '$key'
+                                    WHERE
+                                        reservation_number = '$problem_reservation_number';";
+
+                            $result = mysqli_query($con, $sql);
+                            if (!$result) {
+                                echo "Oops - database access %failed%. $page_title Loc 36. Error details follow<br><br> " . mysqli_error($con);
+                                require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+                                exit(1);
+                            }
+
+                            $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
+
+                            $mailing_address = $problem_reserver_id;
+                            $mailing_title = "Your reservation at " . SHOP_NAME;
+                            $new_chair_owner = $chair_owners[$key - 1];
+                            $mailing_message = " 
+                                <p>Dear Customer</p>
+                                <p>Due to circumstances beyond our control we have had to change the stylist on your reservation
+                                   for $appointment_string to $new_chair_owner.
+                                   Please accept  our apologies.
+                                </p>";
+
+                            $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
+
+                            // if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
+
+                            break;
+                        }
                     }
+                }
 
+                if ($problem_chair_expressly_chosen == "Y" || $failed_to_rebook) { // no good - got to cancel
+                    // switch reservation_status to "P" and send apologetic "cancelled" mail
                     $sql = "UPDATE ecommerce_reservations SET
-                            reservation_status = 'P'
-                        WHERE
-                            reservation_number = '$reservation_number';";
+                                    reservation_status = 'P'
+                                WHERE
+                                    reservation_number = '$problem_reservation_number';";
 
-                    $resultc = mysqli_query($con, $sql);
-                    if (!$resultc) {
+                    $result = mysqli_query($con, $sql);
+                    if (!$result) {
                         echo "Oops - database access %failed%. $page_title Loc 36. Error details follow<br><br> " . mysqli_error($con);
                         require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
                         exit(1);
                     }
 
                     $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
-                    $rebookerlink = "https://....  /booker/booker.html?mode=change&resnum=$reservation_number"; //**CONFIG REQUIRED**
+                    $rebookerlink = "https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=change&resnum=$problem_reservation_number"; //**CONFIG REQUIRED**
 
-                    $mailing_address = $reserver_id;
+                    $mailing_address = $problem_reserver_id;
                     $mailing_title = "Your reservation at " . SHOP_NAME;
                     $mailing_message = " 
                         <p>Dear Customer</p>
@@ -1489,30 +1777,11 @@ if ($helper_type == 'issue_reservation_apologies') {
 
                     $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
 
-// if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
-                    /*
-                      if (strpos($mailing_result, "%problem%") !== false) {
-
-                      $sql = "ROLLBACK;";
-                      $result = mysqli_query($con, $sql);
-                      require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                      echo "%failed% - live but couldn't send rebooking email";
-                      exit(1);
-                      }
-                     */
-                    $sql = "COMMIT;";
-
-                    $resultd = mysqli_query($con, $sql);
-                    if (!$resultd) {
-                        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                        echo "%failed% - couldn't commit";
-                        exit(1);
-                    }
-                    break;
+                    // if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
                 }
             }
         }
-        echo ("mailing succeeded");
+        echo ("successful exit");
     }
 }
 
@@ -1609,12 +1878,9 @@ if ($helper_type == "login_with_encrypted_credentials") {
         $login_outcome = "succeeded";
 
         // set the session record "signed-on" parameter 
-        error_log("about to set session record");
-
 
         session_start();
         $_SESSION['logged_in'] = "yes";
-        error_log("logged in " . $_SESSION['logged_in']);
     }
 
     echo $login_outcome;
