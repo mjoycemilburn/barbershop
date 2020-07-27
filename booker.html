@@ -207,15 +207,15 @@
                             <div id = "testpaypalconfirmbutton" style="margin-top: 1em; margin-left: auto; margin-right: auto;">
                                 <strong>Adult Haircut<br> £9.50<br></strong>
                                 <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'> <!-- **CONFIG REQUIRED** -->
-                                    <input type = 'hidden' name = 'business' value = 'business_name'> <!-- **CONFIG REQUIRED** -->
-                                    <input type = 'hidden' name = 'notify_url' value = 'your_url/ecommerce_admin/booker/php/listener_sandbox.php'> <!-- **CONFIG REQUIRED** -->
+                                    <input type = 'hidden' name = 'business' value = 'mjoycemilburn@applebyarchaeology.org.uk'> <!-- **CONFIG REQUIRED** -->
+                                    <input type = 'hidden' name = 'notify_url' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/php/listener_sandbox.php'> <!-- **CONFIG REQUIRED** -->
                                     <input type = 'hidden' name = 'cmd' value = '_xclick'>
                                     <input type = 'hidden' name = 'item_name' value = 'Booker Items'>
                                     <input type = 'hidden' name = 'amount' value = "9.50">
                                     <input type = 'hidden' name = 'currency_code' value = 'GBP'>
                                     <input id = "papypalbookeremail" type = "hidden" NAME="email">
                                     <input id = "paypalcustomvariable" type = 'hidden' name = 'custom'>
-                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = 'your_url/ecommerce_admin/booker/booker.html?mode=paypalreturn'> <!-- **CONFIG REQUIRED** -->
+                                    <input id = "paypalreturn" type = 'hidden' name = 'return' value = 'https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=paypalreturn'> <!-- **CONFIG REQUIRED** -->
                                     <input type = 'image' src = 'https://www.paypalobjects.com/webstatic/en_US/i/buttons/pp-acceptance-large.png' alt = 'PayPal Acceptance' border = '0' name = 'submit'>
                                 </form>
 
@@ -244,7 +244,35 @@
                         </div> 
                         <div id = "patterndisplay2" style="display: none;"> // this is the table bit
                             <span id = "patterndisplay2content"></span>
-                        </div>                       
+                        </div>
+
+                        <div id = "createnewchairdisplay" 
+                             style = "display: none; border: 1px solid black; width: 90%;  margin-left: -45%;
+                             position: absolute; top: 19vw; left: 50%;
+                             background: gainsboro; z-index: 10;">
+
+                            <h4 style="text-align: center;">Create New Chair</h4>
+
+                            <form style="border: solid; width: 80%; padding: 3vh 1vw 4vh 1vw; margin: 4vh auto 5vh auto;">        
+                                <p>
+                                    <label id = "newchairnumberlabel" class = "formlabel">Chair number:</label>&nbsp;
+                                    <input  id = "newchairnumber" type="text" title="New chair number" maxlength="3"  size="3" 
+                                            onkeyup = "document.getElementById('newchairnumbermessage').style.display = 'none';">
+                                </p>
+                                <p>
+                                    <label id = "newchairownerlabel" class = "formlabel">Chair owner name:</label>&nbsp;&nbsp;
+                                    <input  id = "newchairowner" type="text" title="The name of the new chir owner" maxlength="20" size="10"
+                                            onkeyup = "document.getElementById('newchairnumbermessage').style.display = 'none';">
+                                </p>
+                                <p id = "newchairnumbermessage" style = "text-align: center; display: none;"></p>
+                                <label class = "formlabel"></label>&nbsp;&nbsp;
+                                <button class = 'btn btn-primary' style="margin-top: 1em;" onclick = "insertChair()" type="button">Create</button>&nbsp;&nbsp;&nbsp;
+                                <button class = 'btn btn-primary' style="margin-top: 1em;" 
+                                        onclick = "document.getElementById('createnewchairdisplay').style.display = 'none'; buildPatternDisplay(0);" type="button">Cancel</button>;                      
+                            </form> 
+
+                        </div>
+
 
                         <div id = "reservationdetailsdisplay" 
                              style = "display: none; border: 1px solid black; width: 90%;  margin-left: -45%;
@@ -520,7 +548,9 @@
             var staffholidaydisplaycontent = document.getElementById('staffholidaydisplaycontent');
             function buildStaffHolidayDisplay(year, month, chairNumber) {
 
-                // Display days that are unavailable as staff absences (sickness/holiday)
+                // Display days that are unavailable as staff absences (sickness/holiday).
+                // If no chair is specified, display the first you find and use this to set
+                // currentChairNumber
 
                 var oData = new FormData(form);
                 oData.append("helper_type", "build_staff_holiday_table_for_month_display");
@@ -535,24 +565,21 @@
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
-                        }
-                        if (response.indexOf("number_of_chairs exceeded") != -1) {
-                            currentChairNumber--;
                             return;
-                        } else {
-
-                            // deal with the 2 returns
-
-                            var xmlDoc = oReq.responseXML;
-                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
-                            JSONString = prepareStringforJSONParse(JSONString);
-                            var JSONObject = JSON.parse(JSONString);
-                            staffholidaydisplay1.innerHTML = JSONObject.return1;
-                            staffholidaydisplay2content.innerHTML = JSONObject.return2;
-                            management.style.display = "block";
-                            staffholidaydisplay1.style.display = "block";
-                            staffholidaydisplay2.style.display = "block";
                         }
+
+                        // deal with the 3 returns
+
+                        var xmlDoc = oReq.responseXML;
+                        var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                        JSONString = prepareStringforJSONParse(JSONString);
+                        var JSONObject = JSON.parse(JSONString);
+                        staffholidaydisplay1.innerHTML = JSONObject.return1;
+                        staffholidaydisplay2content.innerHTML = JSONObject.return2;
+                        currentChairNumber = JSONObject.return3;
+                        management.style.display = "block";
+                        staffholidaydisplay1.style.display = "block";
+                        staffholidaydisplay2.style.display = "block";
                     }
                 };
                 oReq.send(oData);
@@ -770,10 +797,10 @@
                 }
             }
 
-            var numberOfChairs;
             function buildPatternDisplay(chairNumber) {
 
-                // build and display the working-hours patternDisplat for chairNumber 
+                // build and display the working-hours patternDisplay for chairNumber 
+                // if chairNumber is 0 we find the first and include this in the returns
 
                 var oData = new FormData(form);
                 oData.append("helper_type", "build_work_pattern_table_for_week_display");
@@ -787,25 +814,20 @@
                         var response = oReq.responseText;
                         if (response.indexOf("%failed%") != -1) {
                             alert(response);
-                        }
-                        if (response.indexOf("number_of_chairs exceeded") != -1) {
-                            currentChairNumber--;
                             return;
-                        } else {
-                            // deal with the 3 returns
-
-                            var xmlDoc = oReq.responseXML;
-                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
-                            JSONString = prepareStringforJSONParse(JSONString);
-                            var JSONObject = JSON.parse(JSONString);
-                            patterndisplay1.innerHTML = JSONObject.return1;
-                            patterndisplay2.innerHTML = JSONObject.return2;
-                            numberOfChairs = JSONObject.return3;
-                            management.style.display = "block";
-                            patterndisplay1.style.display = "block";
-                            patterndisplay2.style.display = "block";
-                            patternChairNum = 1;
                         }
+                        // deal with the 3 returns
+
+                        var xmlDoc = oReq.responseXML;
+                        var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                        JSONString = prepareStringforJSONParse(JSONString);
+                        var JSONObject = JSON.parse(JSONString);
+                        patterndisplay1.innerHTML = JSONObject.return1;
+                        patterndisplay2.innerHTML = JSONObject.return2;
+                        currentChairNumber = JSONObject.return3;
+                        management.style.display = "block";
+                        patterndisplay1.style.display = "block";
+                        patterndisplay2.style.display = "block";
                     }
                 }
                 ;
@@ -824,25 +846,6 @@
                 var output = input;
                 output = output.replace(/\n/g, "").replace(/\r/g, "\\\\r").replace(/\t/g, "\\\\t");
                 return output;
-            }
-
-
-            function advanceChairNum() {
-                currentChairNumber++;
-                if (mode == "staffholiday")
-                    buildStaffHolidayDisplay(currentYear, currentMonth, currentChairNumber);
-                if (mode == "pattern")
-                    buildPatternDisplay(currentChairNumber);
-            }
-
-            function retardChairNum() {
-                currentChairNumber--;
-                if (currentChairNumber == 0)
-                    currentChairNumber = 1;
-                if (mode == "staffholiday")
-                    buildStaffHolidayDisplay(currentYear, currentMonth, currentChairNumber);
-                if (mode == "pattern")
-                    buildPatternDisplay(currentChairNumber);
             }
 
             function savePattern(chairNumber) {
@@ -895,9 +898,12 @@
                 // you've added one too many commas, so
                 patternJSON = patternJSON.slice(0, -1);
                 patternJSON += ']';
+
+                var currentchairowner = document.getElementById("currentchairowner");
                 var oData = new FormData(form);
                 oData.append("helper_type", "save_pattern");
                 oData.append("chair_number", chairNumber);
+                oData.append("chair_owner", currentchairowner.value);
                 oData.append("pattern_json", patternJSON);
                 var oReq = new XMLHttpRequest();
                 oReq.open("POST", "php/booker_helpers.php", true);
@@ -924,7 +930,106 @@
                 oReq.send(oData);
             }
 
+            function prepareToDeleteChair(chairNumber) {
 
+                var oData = new FormData(form);
+                oData.append("helper_type", "prepare_to_delete_chair");
+                oData.append("chair_number", chairNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            if (confirm(response))
+                                deleteChair(chairNumber);
+                        }
+                    }
+                }
+                ;
+                oReq.send(oData);
+            }
+
+            function deleteChair(chairNumber) {
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "delete_chair");
+                oData.append("chair_number", chairNumber);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                            return;
+                        }
+                        buildPatternDisplay(0);
+                    }
+                }
+                ;
+                oReq.send(oData);
+            }
+
+            function insertChair() {
+
+                var newchairnumbermessage = document.getElementById('newchairnumbermessage');
+
+                // Get the new chair number and name from the newchairnumber form and try to 
+                // create a database record for it in work_patterns
+
+                var oData = new FormData(form);
+                oData.append("helper_type", "insert_chair");
+
+                var newChairNumber = document.getElementById("newchairnumber").value;
+                var newChairOwner = document.getElementById("newchairowner").value;
+
+                oData.append("chair_number", newChairNumber);
+                oData.append("chair_owner", newChairOwner);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", "php/booker_helpers.php", true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%timed-out%") != -1)
+                            dealWithTimeout(response);
+
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                            return;
+                        }
+
+                        newchairnumbermessage.style.display = "inline";
+                        newchairnumbermessage.innerHTML = response;
+                        newchairnumbermessage.style.color = "red";
+
+                        if (response.indexOf("Invalid chair number") != -1)
+                            return;
+
+                        if (response.indexOf("Chair already exists") != -1)
+                            return;
+
+                        // all OK - display empty pattern for new chair number
+
+                        document.getElementById('createnewchairdisplay').style.display = "none";
+                        buildPatternDisplay(newChairNumber);
+
+                    }
+                }
+                ;
+                oReq.send(oData);
+            }
 
             var emailaddress = document.getElementById("emailaddress");
             var emailaddresserror = document.getElementById("emailaddresserror");
@@ -1471,14 +1576,12 @@
                     deleteUnconfirmedReservations();
                 }
                 if (mode == 'staffholiday') { // display monthly staff absence details
-                    currentChairNumber = 1
-                    buildStaffHolidayDisplay(todayYear, todayMonth, currentChairNumber);
+                    buildStaffHolidayDisplay(todayYear, todayMonth, 0);
                     setActiveButton(staffholidaybuttonanchor, staffholidaydisplay1);
                     deleteUnconfirmedReservations();
                 }
                 if (mode == 'pattern') { // display weekly work-patterns details
-                    currentChairNumber = 1
-                    buildPatternDisplay(currentChairNumber);
+                    buildPatternDisplay(0);
                     setActiveButton(patternbuttonanchor, patterndisplay1);
                     deleteUnconfirmedReservations();
                 }
