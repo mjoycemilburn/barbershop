@@ -1987,7 +1987,7 @@ if ($helper_type == 'issue_reservation_apologies') {
                     // conventionally would have added a version number paramter here in order to avoid cache problems
                     // but this isn't available. However we've go a unique reservation number, so should be OK
 
-                    $rebookerlink = "https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=change&resnum=$problem_reservation_number"; //**CONFIG REQUIRED**
+                    $rebookerlink = "your_url/booker/booker.html?mode=change&resnum=$problem_reservation_number"; //**CONFIG REQUIRED**
 
                     $mailing_address = $problem_reserver_id;
                     $mailing_title = "Your reservation at " . SHOP_NAME;
