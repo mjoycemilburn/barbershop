@@ -106,11 +106,6 @@ compromise and can be readily replaced by a more conventional login if circumsta
         </div>
         <script>
 
-            // It was originally intended that Login and Password Change Buttons would only be activated
-            // after typing was seen in the userId and password fields. But autofill fires up as soon as  
-            // the browser sees a form containing a password field and cannot be overridden - so 
-            // effectively typing has always occurred in these fields. 
-
             function clearAllErrors() {
                 loginpanelmessage.style.display = "none";
             }
@@ -208,6 +203,11 @@ compromise and can be readily replaced by a more conventional login if circumsta
             }
 
             window.onload = function () {
+                
+                if (getUrlParameter('forcedlogin') !== '')
+                // presence of the 'florcedlogin' parameter signals that local credentials are to be over-ridden
+                localStorage.setItem('bookerencryptedcredentials', '');
+                 
 
                 // if encryptedCredentials are present, try to login with them
 
