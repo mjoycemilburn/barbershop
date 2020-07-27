@@ -95,7 +95,7 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
                 for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
                     for ($j = 0; $j < 7; $j++) {
 
-                        $weekday_pattern_availability[$i]['working'][$j] = 0;
+                        $weekday_pattern_availability[$i]['working'][$j] = 1;
                     }
                 }
             } else {
@@ -443,18 +443,17 @@ function build_compromised_slot_array_for_month($year, $month, $min_chair_number
 }
 
 function assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number) {
-    
+
     // if $min_chair_number =  $max_chair_number, returns $chair_expressly_chosen = "Y" in return[0],
     // otherwise "N"
-
     // If $chair_expressly_chosen == "Y", checks the "requested_chair is still available and return
     // $requested_chair in return[1], otherwise errors
     // If $$chair_expressly_chosen == "Y", checks to see that there is still a barber available and
     // returns a chair number at random in return[1],, otherwise errors
 
     require ('../includes/booker_globals.php');
-    
-        $chair_expressly_chosen = "N";
+
+    $chair_expressly_chosen = "N";
     if ($min_chair_number == $max_chair_number) {
         $chair_expressly_chosen = "Y";
         $assigned_chair_number = $min_chair_number;
@@ -468,7 +467,7 @@ function assign_chair($reservation_slot, $day, $requested_chair_number, $min_cha
             $slot_still_free = true;
         }
     } else {
-        
+
         // build an array of free chairs for this slot (if there are any!)
         $free_chairs = array();
         $j = 0;
@@ -485,16 +484,16 @@ function assign_chair($reservation_slot, $day, $requested_chair_number, $min_cha
             $assigned_chair_number = $free_chairs[mt_rand(0, count($free_chairs) - 1)];
         }
     }
-    
+
     if (!$slot_still_free) {
         echo "Sorry - this slot has just been booked by another customer - please choose a different slot";
         require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
         exit(1);
     }
-    
+
     $return_array[0] = $chair_expressly_chosen;
     $return_array[1] = $assigned_chair_number;
-    
+
     return $return_array;
 }
 
