@@ -43,7 +43,7 @@
 #                                                    showing staff absence  
 #                                                    
 #                                                      
-# 'toggle_staff_holiday'            -   toggle bstaff_holiday' record  in and out of existence for supplied date and chair_number                                                                                                                                                      
+# 'toggle_staff_holiday'            -   toggle a staff_holiday record  in and out of existence for supplied date and chair_number                                                                                                                                                      
 #  
 # 'build_work_pattern_table_for_week_display'   -   create display table for supplied chair_number showing hours
 #                                                   worked in a standard week. If there is no work_pattern for
@@ -51,10 +51,16 @@
 #
 # 'save_pattern'                    -   Update the pattern json and chair_owner name for the supplied chair_number
 #
+# 'prepare_to_delete_chair'         -   build a "confirm you want to delete chair" message for given chair number
+# 
+# 'delete_chair'                    -   delete chair number
+# 
+# 'insert_chair'                    -   insert chair number
+#
 # 'build_check_display'             - Return a list of slots (in the upcoming three months) that are
 #                                     unresourced give current staffing, work-patterns and holidays
 #
-# 'issue_reservation_apologies'     - issue reservation apologies for given range of slots - set the first email booking in
+# 'issue_reservation_apologies'    - issue reservation apologies for given range of slots - set the first email booking in
 #                                     each of the affected slots to "postponed" and despatch an email conataining a link
 #                                     inviting rebooking
 #
@@ -452,7 +458,7 @@ if ($helper_type == 'insert_reservation') {
     build_availability_variables_for_month($year, $month, $min_chair_number, $max_chair_number);
 
 // check the continued availability for this slot  
-    
+
     $requested_chair_number = '';
     $results_array = assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number);
     $chair_expressly_chosen = $results_array[0];
@@ -577,14 +583,14 @@ if ($helper_type == 'change_reservation') {
     }
 
 // Now find a chair for this customer - if there still is one!
-    
+
     $results_array = assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number);
     $chair_expressly_chosen = $results_array[0];
     $assigned_chair_number = $results_array[1];
-    
+
 // OK, if there was a problem, we'd have errored back to booker.html by now, so start a transaction to
 // delete the outgoing reservation and create the new one
-    
+
     $sql = "START TRANSACTION;";
 
     $result = mysqli_query($con, $sql);
@@ -680,7 +686,8 @@ if ($helper_type == 'build_slot_reservations_display') {
     $reservation_slot = $_POST['reservation_slot'];
     $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
     build_availability_variables_for_month($year, $month, 1, 10000);
-    pr($slot_availability_array[$reservation_slot][$day-1]);
+    
+   // pr($slot_availability_array[$reservation_slot][$day - 1]);
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
@@ -1066,40 +1073,59 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
     $month = $_POST['month'];
     $chair_number = $_POST['chair_number'];
 
-// get chair_owner for chair_number
+// Build an array of chair numbers (can't guarantee they're sequential) to permit
+// close control of "get previous" and "get next" buttons and pick up the
+// chair_owner for the current chair_number while you're at it. If no chair number 
+// is specified, use the first you find and include it in the returns
 
     $sql = "SELECT 
-                chair_owner
-            FROM ecommerce_work_patterns
-            WHERE 
-                chair_number = '$chair_number';";
+                chair_owner,
+                chair_number
+            FROM ecommerce_work_patterns;";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo("Oops - database access %failed%. $page_title Loc 26. Error details follow<br><br> " . mysqli_error($con));
+        echo("Oops - database access %failed%. $page_title Loc 31. Error details follow<br><br> " . mysqli_error($con));
         require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
         exit(1);
     }
 
-    $row_count = 0;
+    $chairs_index = 0;
+
+    $chairs_array = array(); //this is arranged as a 2d array chairs[['chair_number' : nn, 'chair_name' : aaaa]]
 
     while ($row = mysqli_fetch_array($result)) {
-        $row_count++;
-        $chair_owner = $row['chair_owner'];
+
+        $chairs_array[$chairs_index]['chair_number'] = $row['chair_number'];
+        $chairs_array[$chairs_index]['chair_owner'] = $row['chair_owner'];
+
+        if ($row['chair_number'] == $chair_number || $chair_number == 0) {
+            $chair_number = $row['chair_number'];
+            $chair_owner = $row['chair_owner'];
+            $chair_owner_index = $chairs_index;
+        }
+
+        $chairs_index++;
     }
 
-    if ($row_count == 0) {
-        echo "number_of_chairs exceeded";
-        exit(0);
-    }
+// use $chair_owners array to define preceding and next_chair indices
+
+    $preceding_chair_index = $chair_owner_index - 1;
+    $next_chair_index = $chair_owner_index + 1;
+    if ($preceding_chair_index < 0)
+        $preceding_chair_index = 0;
+    if ($next_chair_index > count($chairs_array) - 1)
+        $next_chair_index = count($chairs_array) - 1;
+    $preceding_chair_number = $chairs_array[$preceding_chair_index]['chair_number'];
+    $next_chair_number = $chairs_array[$next_chair_index]['chair_number'];
 
     $length_of_month = date("t", strtotime("$year-$month"));
 
     $return1 = '<p>Staff Absence settings for ' . $month_name_array[$month - 1] . ' ' . $year . '.</p> 
-                <button onclick = "retardChairNum();"><img src = "img/caret-left.svg"></button>&nbsp;
+                <button onclick = "buildStaffHolidayDisplay(' . $year . ',' . $month . ',' . $preceding_chair_number . ');"><img src = "img/caret-left.svg"></button>&nbsp;
                 <span id = "staffholidaychairnum">' . $chair_number . '</span>&nbsp;
-                <button onclick = "advanceChairNum();"><img src = "img/caret-right.svg"></button> : 
+                <button onclick = "buildStaffHolidayDisplay(' . $year . ',' . $month . ',' . $next_chair_number . ');"><img src = "img/caret-right.svg"></button> : 
                 <span>' . $chair_owner . '</span>
                 <p style = "margin-top: .5em;">Click to set/unset Holidays</p>';
 
@@ -1193,7 +1219,7 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
     $return1 = prepareStringforXMLandJSONParse($return1);
     $return2 = prepareStringforXMLandJSONParse($return2);
 
-    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2 . '"}</returns>';
+    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2 . '", "return3": "' . $chair_number . '"}</returns>';
 
     header("Content-type: text/xml");
     echo "<?xml version='1.0' encoding='UTF-8'?>";
@@ -1278,13 +1304,17 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
-// get chair_owner for chair_number
+// Build an array of chair numbers (can't guarantee they're sequential) to permit
+// close control of "get previous" and "get next" buttons and pick up the
+// chair_owner and pattern_json for the current chair_number while you're at it.
+// If the supplied chair_number is 0, return data the first chair in the series
 
     $sql = "SELECT 
-                chair_owner
+                chair_owner,
+                chair_number,
+                pattern_json
             FROM ecommerce_work_patterns
-            WHERE 
-                chair_number = '$chair_number';";
+            ORDER BY chair_number ASC;";
 
     $result = mysqli_query($con, $sql);
 
@@ -1294,41 +1324,35 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
         exit(1);
     }
 
-    $row_count = 0;
+    $chairs_index = 0;
+
+    $chairs_array = array(); //this is arranged as a 2d array chairs[['chair_number' : nn, 'chair_name' : aaaa]]
 
     while ($row = mysqli_fetch_array($result)) {
-        $row_count++;
-        $chair_owner = $row['chair_owner'];
+
+        $chairs_array[$chairs_index]['chair_number'] = $row['chair_number'];
+        $chairs_array[$chairs_index]['chair_owner'] = $row['chair_owner'];
+
+        if ($row['chair_number'] == $chair_number || $chair_number == 0) {
+            $chair_number = $row['chair_number'];
+            $chair_owner = $row['chair_owner'];
+            $pattern_json = $row['pattern_json'];
+            $chair_owner_index = $chairs_index;
+        }
+
+        $chairs_index++;
     }
 
-    if ($row_count == 0) {
-        echo "number_of_chairs exceeded";
-        exit(0);
-    }
+// use $chair_owners array to define preceding and next_chair indices
 
-# now get the record and use it to build returns for elements
-# "patterndisplay1" and "patterndisplay2" 
-
-    $sql = "SELECT 
-                    chair_number,
-                    chair_owner,
-                    pattern_json
-            FROM ecommerce_work_patterns
-            WHERE 
-                chair_number = '$chair_number';";
-
-    $result = mysqli_query($con, $sql);
-
-    if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 32. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-        exit(1);
-    }
-
-    $row = mysqli_fetch_array($result);
-    $chair_number = $row['chair_number'];
-    $chair_owner = $row['chair_owner'];
-    $pattern_json = $row['pattern_json'];
+    $preceding_chair_index = $chair_owner_index - 1;
+    $next_chair_index = $chair_owner_index + 1;
+    if ($preceding_chair_index < 0)
+        $preceding_chair_index = 0;
+    if ($next_chair_index > count($chairs_array) - 1)
+        $next_chair_index = count($chairs_array) - 1;
+    $preceding_chair_number = $chairs_array[$preceding_chair_index]['chair_number'];
+    $next_chair_number = $chairs_array[$next_chair_index]['chair_number'];
 
 // if the json is defined, use json_decode to turn it into an asociative array
 // otherwise create an empty array manually
@@ -1348,12 +1372,29 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
     }
 
     $return1 = '
-            <p>Standard weekly work-patterns for Chair : </p>
-            <button onclick = "retardChairNum();"><img src = "img/caret-left.svg"></button>&nbsp;
-            <span id = "staffholidaychairnum">' . $chair_number . '</span>&nbsp;
-            <button onclick = "advanceChairNum();"><img src = "img/caret-right.svg"></button> : 
-            <span>' . $chair_owner . '</span>
-            <p style="margin-top: .5em;">
+            <p>
+                <img src = "img/minus.svg" style="position: absolute; left: 10%; height: 25px;"
+                  title = "Delete chair"
+                  onclick = "prepareToDeleteChair(' . $chair_number . ');">
+                <span>Standard weekly work-patterns for Chair : </span>
+                <img src = "img/plus.svg" style="position: absolute; right: 10%; height: 25px;"
+                  title = "Add new chair"
+                  onclick = "document.getElementById(\'createnewchairdisplay\').style.display = \'block\';
+                             document.getElementById(\'newchairnumbermessage\').style.display = \'none\';">
+            </p>
+                <button onclick = "buildPatternDisplay(' . $preceding_chair_number . ');" >
+                    <img src = "img/caret-left.svg">
+                </button>&nbsp;
+                <span id = "staffholidaychairnum">' . $chair_number . '</span>&nbsp;
+                <button onclick = "buildPatternDisplay(' . $next_chair_number . ');">
+                    <img src = "img/caret-right.svg">
+                </button>
+                <span>&nbsp;&nbsp;:&nbsp;&nbsp;<span>
+                <input id="currentchairowner" type="text" name="currentchairowner"
+                   value = "' . $chair_owner . '"
+                   style = "height: 2em; text-align: center; font-weight: bold; background: aliceblue; margin-top: 1em;" 
+                   maxlength="20" size="10">
+            <p style="margin-top: 1em;">
                 <span>Click to set/unset slots</span><br>
                 <span>Hold Shift key and Click to set a range of slots</span>
             </p>';
@@ -1402,7 +1443,7 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
 
 // wrap the returns up in yet another json
 
-    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2 . '"}</returns>';
+    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2. '", "return3": "' . $chair_number . '"}</returns>';
 
     header("Content-type: text/xml");
     echo "<?xml version='1.0' encoding='UTF-8'?>";
@@ -1416,10 +1457,12 @@ if ($helper_type == "save_pattern") {
     if (logged_in("pattern")) {
 
         $chair_number = $_POST['chair_number'];
+        $chair_owner = $_POST['chair_owner'];
         $pattern_json = $_POST['pattern_json'];
 
         $sql = "UPDATE ecommerce_work_patterns SET
-                pattern_json = '$pattern_json'
+                    chair_owner = '$chair_owner',
+                    pattern_json = '$pattern_json'
             WHERE
                 chair_number = '$chair_number';";
 
@@ -1431,6 +1474,182 @@ if ($helper_type == "save_pattern") {
         } else {
             echo "Save succeeded";
         }
+    }
+}
+
+#####################  prepare_to_delete_chair ####################
+
+if ($helper_type == "prepare_to_delete_chair") {
+
+    if (logged_in("pattern")) {
+
+        $chair_number = $_POST['chair_number'];
+
+        $today = date("Y-m-d");
+
+        // see if there are any reservations for the given chair and use this to construct an
+        // appropriate message to ask users to confirm they really want to delete thechair
+
+        $sql = "SELECT 
+                 COUNT(*)
+            FROM ecommerce_reservations
+            WHERE 
+                assigned_chair_number = '$chair_number' AND
+                reservation_date >= '$today';";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 33a. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $row = mysqli_fetch_array($result);
+        $count = $row['COUNT(*)'];
+
+        echo "Do you really want to delete chair_number $chair_number? ";
+
+        if ($count == 0) {
+            echo "(There are no upcoming reservations for this chair)";
+        } else {
+            echo "(There are $count upcoming reservations for this chair)";
+        }
+    }
+}
+
+#####################  delete_chair ####################
+
+if ($helper_type == "delete_chair") {
+
+    if (logged_in("pattern")) {
+
+        $chair_number = $_POST['chair_number'];
+
+        $sql = "START TRANSACTION;";
+
+        $result = mysqli_query($con, $sql);
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 33b. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $sql = "DELETE FROM ecommerce_work_patterns
+                WHERE 
+                    chair_number = '$chair_number';";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            $sql = "ROLLBACK;";
+            $result = mysqli_query($con, $sql);
+            echo "Oops - database access %failed%. $page_title Loc 33c. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $sql = "DELETE FROM ecommerce_staff_holidays
+                WHERE 
+                    chair_number = '$chair_number';";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            $sql = "ROLLBACK;";
+            $result = mysqli_query($con, $sql);
+            echo "Oops - database access %failed%. $page_title Loc 33d. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $sql = "DELETE FROM ecommerce_reservations
+                WHERE 
+                    assigned_chair_number = '$chair_number';";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            $sql = "ROLLBACK;";
+            echo "Oops - database access %failed%. $page_title Loc 33e. Error details follow<br><br> " . mysqli_error($con);
+            $result = mysqli_query($con, $sql);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $sql = "COMMIT;";
+
+        $result = mysqli_query($con, $sql);
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 33f. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        echo "deletion succeeded";
+    }
+}
+
+#####################  insert_chair ####################
+
+if ($helper_type == "insert_chair") {
+
+    if (logged_in("pattern")) {
+
+        $chair_number = $_POST['chair_number'];
+        $chair_owner = $_POST['chair_owner'];
+
+        // check that chair_owner is an integer within valid range
+
+        if ($chair_number < 1 || $chair_number > 100 || $chair_number - floor($chair_number) > 0) {
+            echo "Invalid chair numberb";
+            exit(0);
+        }
+
+        // now check that there's not already a record for this chair_number
+
+        $sql = "SELECT COUNT(*)
+                FROM ecommerce_work_patterns
+                WHERE 
+                    chair_number = '$chair_number';";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 33g. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+
+        $row = mysqli_fetch_array($result);
+        $count = $row['COUNT(*)'];
+
+        if ($count > 0) {
+            echo "Chair already exists";
+            exit(0);
+        }
+
+        // insert the record
+
+        $pattern_json = '[]';
+
+        $sql = "INSERT INTO ecommerce_work_patterns (
+                chair_number,
+                chair_owner,
+                pattern_json)
+            VALUES (
+                '$chair_number', 
+                '$chair_owner',
+                '$pattern_json');";
+
+        $result = mysqli_query($con, $sql);
+
+        if (!$result) {
+            echo "Oops - database access %failed%. $page_title Loc 33h. Error details follow<br><br> " . mysqli_error($con);
+            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            exit(1);
+        }
+        echo "New chair created";
     }
 }
 
@@ -1764,7 +1983,11 @@ if ($helper_type == 'issue_reservation_apologies') {
                     }
 
                     $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
-                    $rebookerlink = "your_url/booker.html?mode=change&resnum=$problem_reservation_number"; //**CONFIG REQUIRED**
+
+                    // conventionally would have added a version number paramter here in order to avoid cache problems
+                    // but this isn't available. However we've go a unique reservation number, so should be OK
+
+                    $rebookerlink = "https://applebyarchaeology.org.uk/ecommerce_admin/booker/booker.html?mode=change&resnum=$problem_reservation_number"; //**CONFIG REQUIRED**
 
                     $mailing_address = $problem_reserver_id;
                     $mailing_title = "Your reservation at " . SHOP_NAME;
