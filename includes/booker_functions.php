@@ -202,9 +202,8 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
         }
     }
 
-
 // Finally, update stylist entries in $slot_availability_array to show which ones are booked
-// Don't count P (postponed) or  U (unconfirmed) reservations - just take Cs.   
+// Don't count P (postponeds) as their stylists won't be in the array (since they're "absent").
 
     $sql = "SELECT
                 assigned_chair_number,
@@ -212,7 +211,7 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
                 reservation_date
             FROM ecommerce_reservations
             WHERE
-                reservation_status = 'C' AND
+                reservation_status <> 'P' AND
                 reservation_date >= '$year" . "-" . $month . "-01' AND
                 reservation_date <= '$year" . "-" . $month . "-$length_of_month' AND
                 assigned_chair_number >= '$min_chair_number' AND
@@ -286,8 +285,8 @@ function build_compromised_slot_array_for_month($year, $month, $min_chair_number
     // OK, first run
 
     $compromised_slots_array = array();
-
-    //ignore "P" and "U" status reservations - just take "C"s
+    
+    //ignore "P" status reservations as we've already dealt with them
 
     $sql = "SELECT
                 reservation_number,
@@ -300,7 +299,7 @@ function build_compromised_slot_array_for_month($year, $month, $min_chair_number
                 chair_expressly_chosen
             FROM ecommerce_reservations
             WHERE
-                reservation_status = 'C' AND
+                reservation_status <> 'P' AND
                 reservation_date >= '$year" . "-" . $month . "-01' AND
                 reservation_date <= '$year" . "-" . $month . "-$length_of_month' AND
                 assigned_chair_number >= '$min_chair_number' AND
