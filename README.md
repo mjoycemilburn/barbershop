@@ -6,6 +6,6 @@ The code as presented here would need some configuration of elements to accomoda
 
 The code is extensively commented so configuration and customisation should be reasonably straightforward.
 
-Development of the system is ongoing and there are some limitations - for example, reservation slots must be of equal length. However, the length of the reservation slot,  the number of chairs and staff working hours are all configurable, and it is now also possible for customers to specify a preferred stylist.
+Development of the system is ongoing and there are some limitations - for example, reservation slots must be of equal length and only a single, standard service is offered. However, the length of the reservation slot,  the number of chairs and staff working hours are all configurable. It is now also possible for customers to specify a preferred stylist.
 
 See <a href = "https://mjoycemilburn.github.io/barbershop/">https://mjoycemilburn.github.io/barbershop/ for screenshots</a>
