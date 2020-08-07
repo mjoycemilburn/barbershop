@@ -7,7 +7,7 @@ namespace Listener;
 // and live_listener. They differ only in the setting of $enable_sndbox on line 10
 // Set this to true to use the sandbox endpoint during testing:
 
-$enable_sandbox = true;
+$enable_sandbox = false;
 
 //error_log("entered listener_sandbox " . date("Y-m-d H:i:s"));
 // Specification of all of the paypal business addresses that can legitimately call the 

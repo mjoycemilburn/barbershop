@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!--
+This is the standard entry for the online Management operation mode of index.php 
+and the one that should be advertised to users. It ensures that security is applied
+to prevent unauthorised access and also that any changes to booker.html get reloaded.
+
+In high security applications the usual way of handling this would be to arrange for
+the login_engine.php to set a parameter in the server session record that is checked by 
+everysubsequent php routine. If these routines fail to find a satisfactory value in 
+this parameter they direct control back to the login_engine routine. 
+
+Two issues have meant that, in this instance, this form of security is not applied. The
+first problem is that the structure of the system makes it impractical to use a session
+record in the way described. This is because each shop operates in its own sub-domain, 
+sharing common code in the root domain, and session records cannot be shared 
+between domains. Ways of avoiding this problem might have been found but only at the 
+expense of sacrificing the code-sharing arrangement. The second problem is that  
+session codes are subject to a timeout that means that unattended sessions require another 
+login before they may continue. This might be appropriate for a high-security application 
+but would be excessively tedious and unwelcome in this situation. 
+
+Accordingly, the arrangement implemented here is much simpler. On first use, the login_
+engine routine will request a user-id and password, as would normally be expected. 
+However, once these have been validated against the database, a "trusted user" code 
+is returned and placed in the local storage record. The PC or phone on which the 
+initial login_engine was made now becomes a "trusted device" in the sense that 
+future calls to login_engine will first attempt to validate themselves using the 
+"trusted-user" code - user-Id and password input will only be requested if the 
+"trusted-user" code isn't accepted. While this arrangement isn't ideal it seems a 
+reasonable compromise. Note, however, at any given moment the shop can have only one 
+"trusted device" - a second device, signing on with the correct credentials will take 
+the trusted status from the first and the first will in turn take over the status from
+the second next time it is used. Hopefully this won't cause too much inconvenience.
+
+-->
+<html>
+    <head>
+        <title>Booker Managment signon</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <!-- jQuery library -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+        <style>
+            .formlabel {
+                display: inline-block;
+                width: 25%;
+            }
+        </style>
+    </head>
+    <body>
+        <div class = 'container-fluid'>
+
+            <!-- dummy sidebar to make display look reasonable on large screens -->
+
+            <div class="row">
+
+                <div class= "col-md-4">
+                </div>
+
+                <div class = "col-md-4 col xs-12">        
+
+                    <form id="dummyform"></form>  <!-- dummy form used by d/b interface routines -->
+
+                    <h2 style="text-align: center;">Booker Management login</h2>
+
+                    <form style="border: solid; width: 100%; padding: 3vh 1vw 4vh 1vw; margin: 4vh auto 5vh auto;">        
+                        <p>
+                            <label id = "useridlabel" class = "formlabel">User Id:</label>&nbsp;&nbsp;  
+                            <input id = "userid" type="text" title="Your system identifier" maxlength="10"  size="10" onkeyup = "clearAllErrors();">
+                        </p>
+                        <p>
+                            <label id = "passwordlabel" class = "formlabel">Password:</label>&nbsp;&nbsp;
+                            <input  id = "password" type="password" title="Your personal password" maxlength="12" size="12" onkeyup = "clearAllErrors();">
+                        </p>
+                        <p id = "loginpanelmessage" style = "width: 30vw; display: none;">&nbsp;
+                        </p>
+                        <label class = "formlabel"></label>&nbsp;&nbsp;
+                        <button class = 'btn btn-primary' style="margin-top: 1em;" onclick = "loginWithUserCredentials()" type="button">Login</button>&nbsp;&nbsp;&nbsp;
+                    </form>
+                </div>
+                <div class= "col-md-4">
+                </div>
+            </div>
+        </div>
+        <script>
+
+            if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+                sourceRoot = "http://localhost/booker/";
+            } else {
+                sourceRoot = "website_root_domain/"; //**CONFIG REQUIRED** - set this to your website root domain - eg https://mywebsite.com
+            }
+            
+            function clearAllErrors() {
+                loginpanelmessage.style.display = "none";
+            }
+
+            userid = document.getElementById('userid');
+            password = document.getElementById('password');
+
+            function loginWithUserCredentials() {
+
+                // we've clicked a button on the form, so this means native form events are fired also
+                // We need to stop these in their tracks!
+
+                event.preventDefault();
+                var form = document.forms.namedItem("dummyform");
+                var oData = new FormData(form);
+                oData.append("helper_type", "login_with_user_credentials");
+                oData.append("shop_url", shopUrl);
+                oData.append("user_id", userid.value);
+                oData.append("password", password.value);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", helperTarget, true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+
+                            // solid response - so look at the two parameters that will
+                            // have come back. The first will tell us if the credentials 
+                            // were accepted or not. If they are, the second will contain
+                            // the encrypted keys
+
+                            var xmlDoc = oReq.responseXML;
+                            var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
+                            var JSONObject = JSON.parse(JSONString);
+                            validationResult = JSONObject.return1;
+                            trustedUserCode = JSONObject.return2;
+                            if (validationResult == "succeeded") {
+                                localStorage.setItem('bookertrustedusercode', trustedUserCode);
+                                launchBooker();
+                            } else {
+                                loginpanelmessage.innerHTML = "Sorry, but this user-id/password combination doesn't work";
+                                loginpanelmessage.style.display = "block";
+                                loginpanelmessage.style.color = "red";
+                            }
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function loginWithTrustedUserCode(trustedUserCode) {
+
+                var oData = new FormData(dummyform);
+                oData.append("helper_type", "login_with_trusted_user_code");
+                oData.append("shop_url", shopUrl);
+                oData.append("trusted_user_code", trustedUserCode);
+                var oReq = new XMLHttpRequest();
+                oReq.open("POST", helperTarget, true);
+                oReq.onload = function (oEvent) {
+                    if (oReq.status == 200) {
+                        var response = oReq.responseText;
+                        if (response.indexOf("%failed%") != -1) {
+                            alert(response);
+                        } else {
+                            launchBooker();
+                        }
+                    }
+                };
+                oReq.send(oData);
+            }
+
+            function launchBooker() {
+
+                // if this is a timeout response, there will be a return paramter
+                // on the index.php call that started the program - see if there
+                // is one and, if so, add it to the index.php call so we get 
+                // back to the point that hit the timeout
+
+                if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+                    var target = "http://localhost/booker/martins.cumbrianstylist.com/index.php";
+                } else {
+                    var target = "https://" + shopUrl + "/index.php";
+                }
+
+                var returnParam = getUrlParameter("return");
+                if (returnParam == "") {
+                    target += "?mode=viewer";
+                } else {
+                    target += "?mode=" + returnParam;
+                }
+
+                window.location.assign(target);
+            }
+
+            function getUrlParameter(name) {
+                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+                var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+                var results = regex.exec(window.location.search);
+                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+            }
+
+            var shopUrl;
+            var helperTarget = sourceRoot + "booker_shared_code/php/booker_helpers.php"
+
+            window.onload = function () {
+
+                // This mother is very difficult to debug since, if local credentials are present,
+                // there's no way to stop it (unless it actually errors!). This means there's
+                // no way to set breakpoints.
+                // The trick is to use the developer utility to delete the localstorage value so
+                // that it's forced to ask for credentials
+
+                shopUrl = window.location.hostname;
+
+                // if trustedUserCode is present, try to login with it
+
+                if (localStorage.getItem('bookertrustedusercode') !== null) {
+                    var trustedUserCode = localStorage.getItem('bookertrustedusercode');
+                    loginWithTrustedUserCode(trustedUserCode);
+                }
+
+                // if you're still here, either the credentials aren't there (ie 
+                // first-time use of login on this device) or they're wrong, so
+                // let the user (or the hacker!) fill in the user_id and password 
+                // fields and try to get in through the front door this time
+            };
+
+
+        </script>  
+    </body>
+</html>
+
