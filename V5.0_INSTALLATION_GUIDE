@@ -12,4 +12,12 @@ You'll need Paypal and Postmark accounts to support your testing. Use the creden
 
 Step 4.0 Shop domains/subdomains
 
-Acquire a domain for your operation (eg cumbrianstylist.com) and for each shop create a subdomain of the form shopname.cumbrinastylists.com. For each shop create a folder on your website with the name 
+Acquire a domain for your operation (eg cumbrianstylist.com) and for each shop create a subdomain of the form shopname.cumbrinastylist.com. For each shop create a folder on your server of with the name shopname.cumbrianstylist.com and populate it with files index.php and login.php from github. For each shop also create a barber.jpg file with appropriate logo and detail. Barber.jpg in github provides an example.
+
+Step 5.0 Database Population
+
+For each shop create a record in the ecommerce_barbershops table with the shop's url (eg oneills.cumbrianstyist.com), individual paypal business address (each shop is assumed to have its own paypal a/c with a corresponding business address), shop name (this serves to identify the shop's control page), shop_code (allocated sequentially) and an appropriate value for the "number_of_slots_per_hour" parameter (agreed by consultation with the shop). Shop 1 is assumed to be a testing slot that direct payments to the sandbox_listener (thus accepting virtual payments) rather than listener (which directs real money to the shop's paypal account). Similarly, for each shop create entries in the ecommerce_shop_services table defining the services offered and the corresponding prices. Only "standard" services will be available for selection by customers. "Special" services are available to telephone bookers (this is how you would accomodate lengthy procedures by booking back-to-back reservation slots).
+
+Step 6.0
+
+The system should be tested by trying to make reservations for whatever subdomain you've allocated to shop 1.
