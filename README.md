@@ -6,6 +6,6 @@ Barbershop V5.0 is designed for full commercial operation in the sense that it e
 
 The code is extensively commented so configuration and customisation should be reasonably straightforward - see the installation guide document for details.
 
-Barbershop V5.0 is built around the concept that reservation slot should all be of equal length (though there is nothing to stop users booking slots in sequence in order ot accomodate more extensive procedures). This keeps the interface simple. In all other respects it is fully generalised and the number of chairs, the workig hours of staff and the range of treatments and prices are all configurable. It is also possible for customers to specify a preferred stylist.
+Barbershop V5.0 is built around the concept that reservation slot should all be of equal length (though there is nothing to stop users booking slots in sequence in order to accomodate more extensive procedures). This keeps the interface simple. In all other respects it is fully generalised and the number of chairs, the workig hours of staff and the range of treatments and prices are all configurable. It is also possible for customers to specify a preferred stylist.
 
 See <a href = "https://mjoycemilburn.github.io/barbershop/">https://mjoycemilburn.github.io/barbershop/ for screenshots</a>
