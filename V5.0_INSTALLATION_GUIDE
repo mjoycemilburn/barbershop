@@ -1,0 +1,15 @@
+Step 1.0 Database Initialisation
+
+Acquire a website and create a database for the application (the name is not significant) on the website's server. Use the scripts in the mysql_tables file to create the database structure. 
+
+Step 2.0 Software installation
+
+Create a folder calls booker_shared_code on your website's server and populate this with the booker.html, login_engine, listener.php, listener_sandbox.php and paypalIPN.php files from github. Likewise create cert, incudes and php folders in booker_shared_code and populate these from github.
+
+Step 3.0 Third party liaison
+
+You'll need Paypal and Postmark accounts to support your testing. Use the credentials for these to create a cacert.pem file in the certs folder and to set the Postmark credentials in php/send_email-via-postmark.php. Of course, you don't have to use Postmark for your email distribution, but I've personally found them very reliable.
+
+Step 4.0 Shop domains/subdomains
+
+Acquire a domain for your operation (eg cumbrianstylist.com) and for each shop create a subdomain of the form shopname.cumbrinastylists.com. For each shop create a folder on your website with the name 
