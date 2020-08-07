@@ -1,1 +1,1 @@
-// If you're using Postmark, remember you need to put your autoload.php file in here
+Oops - created this here in error anc can't get rid of it. Curse you, Git!
