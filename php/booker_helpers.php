@@ -11,6 +11,12 @@
 #                         link contained in the message to rebook the reservation)
 # As directed by helper_type :
 # 
+# 'get_shop_parameters'              -  return the shop_name and number of slots per hour parameter for a given shop_url
+#
+# 'build_service_selection_picklists' - build the service-selection picklist for the current shop
+#  
+# 'build_paypal_confirmation_button' - build a paypal for the slsected Service for the current shop
+#  
 # 'build_calendar_month_display'    -  create display table for supplied year (yyyy), month (1 - 12)
 #
 # 'build_calendar_day_display'      -   create display table for supplied year (yyyy), month (1 - 12) and
@@ -25,7 +31,7 @@
 # 'change_reservation'              -   replace the reservations record for the given reservation_number and rebook it
 #                                       for the given year, month, day and slot                                   
 #                                   
-# 'build_slot_reservations_display' -   create a display popup for the reservation s for the specified slot                                 
+# 'build_slot_reservations_display' -   create a display popup for the reservations for the specified slot                                 
 #                                   
 # 'abort_reservation'               -   delete the reservation for supplied reservation_number (online booker aborting paypal) 
 # 
@@ -64,12 +70,22 @@
 #                                     each of the affected slots to "postponed" and despatch an email conataining a link
 #                                     inviting rebooking
 #
-# 'login_with_unencrypted_credentials'  -  Attempt to login with supplied user_id and password
+# 'login_with_user_credentials'  -  Attempt to login with supplied user_id and password
 #
-# 'login_with_encrypted_credentials'    -  Attempt to login with supplied encrypted_keys
-#
+# 'login_with_trusted_user_code'    -  Attempt to login with supplied encrypted_keys
+#   
+# 'validate_trusted_user_code'      -  Check validity of trusted_user_code for supplied shop_code
+#   
 
 $page_title = 'booker_helpers';
+$source_root = 'website_root_domain/'; //**CONFIG REQUIRED** - set this to your website root domain - eg https://mywebsite.com
+
+# set headers to allow code-sharing between stylist websites
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+header("Access-Control-Allow-Headers: Content-Type, Depth, User-Agent, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control");
+header("Access-Control-Max-Age: 18000");
 
 # set headers to NOT cache the page
 header("Cache-Control: no-cache, must-revalidate"); //HTTP 1.1
@@ -78,18 +94,194 @@ header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 
 date_default_timezone_set('Europe/London');
 
-# Connect to the database
-
-require ('/home/qfgavcxt/connect_ecommerce_prototype.php');
 require ('../includes/booker_functions.php');
-require ('../includes/booker_constants.php');
 require ('../includes/send_email_via_postmark.php');
 
+# Connect to the database
+
+connect();
+
 $helper_type = $_POST['helper_type'];
+$shop_url = $_POST['shop_url'];
+
+// Turn the url into a shop_code. If running locally, set shop_code = 1
+
+if ($_SERVER['REMOTE_ADDR'] == '127.0.0.1' or $_SERVER['REMOTE_ADDR'] == '::1') {
+    $shop_url = "localhost";
+}
+
+$sql = "SELECT 
+            shop_code,
+            shop_name,
+            paypal_business_address,
+            number_of_slots_per_hour,
+            default_service_code
+        FROM ecommerce_barbershops
+        WHERE shop_url = '$shop_url';";
+
+$result = mysqli_query($con, $sql);
+
+if (!$result) {
+    echo "Oops - database access %failed%. $page_title Loc 1. Error details follow<br><br> " . mysqli_error($con);
+    disconnect();
+    exit(1);
+}
+
+$shop_code = '';
+$shop_name = '';
+$paypal_business_address = '';
+$number_of_slots_per_hour = 0;
+$default_service_code = 0;
+
+while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
+    $shop_code = $row['shop_code'];
+    $shop_name = $row['shop_name'];
+    $paypal_business_address = $row['paypal_business_address'];
+    $number_of_slots_per_hour = $row['number_of_slots_per_hour'];
+    $default_service_code = $row['default_service_code'];
+}
 
 // Useful parameters
 
 $month_name_array = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+#####################  'get_shop_parameters' ####################
+
+if ($helper_type == 'get_shop_parameters') {
+
+    if ($shop_name == "") {
+        echo "Oops - database access %failed%. $page_title Loc 2. Shop_url not found " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $return1 = prepareStringforXMLandJSONParse($shop_code);
+    $return2 = prepareStringforXMLandJSONParse($shop_name);
+    $return3 = prepareStringforXMLandJSONParse($number_of_slots_per_hour);
+    $return4 = prepareStringforXMLandJSONParse($default_service_code);
+
+    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2 . '", "return3": "' . $return3 . '", "return4": "' . $return4 . '"}</returns>';
+
+    header("Content-type: text/xml");
+    echo "<?xml version='1.0' encoding='UTF-8'?>";
+    echo $json_string;
+}
+
+#####################  'build_service_selection_picklists' ####################
+
+if ($helper_type == 'build_service_selection_picklists') {
+
+    $selected_service_code = $_POST['selected_service_code'];
+
+    $sql = "SELECT 
+                service_code,
+                service_description,
+                service_price,
+                service_class
+            FROM ecommerce_shop_services
+            WHERE shop_code = '$shop_code'
+            ORDER BY shop_code;";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 3. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $return1 = "<select id='emailservicepicklist' onchange = 'handleServiceChangeOnEmail();'>";
+    $return2 = "<select id='telephoneservicepicklist' onchange = 'handleServiceChangeOnTelephone();'>";
+
+    while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
+
+        $service_code = $row['service_code'];
+        $service_description = $row['service_description'];
+        $service_price = $row['service_price'];
+        $service_class = $row['service_class'];
+
+        if ($service_code == $selected_service_code) {
+            $return1 .= "<option selected value = '$service_code'>$service_description : £$service_price</option>";
+            $return2 .= "<option selected value = '$service_code'>$service_description : £$service_price</option>";
+        } else {
+            if ($service_class == "standard") {
+                $return1 .= "<option value = '$service_code'>$service_description : £$service_price</option>";
+                $return2 .= "<option value = '$service_code'>$service_description : £$service_price</option>";
+            } else {
+                $return2 .= "<option value = '$service_code'>$service_description : £$service_price</option>";
+            }
+        }
+    }
+
+    $return1 .= "</select>";
+    $return2 .= "</select>";
+
+    $return1 = prepareStringforXMLandJSONParse($return1);
+    $return2 = prepareStringforXMLandJSONParse($return2);
+
+    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2 . '"}</returns>';
+
+    header("Content-type: text/xml");
+    echo "<?xml version='1.0' encoding='UTF-8'?>";
+    echo $json_string;
+}
+
+#####################  'build_paypal_confirmation_button' ####################
+
+if ($helper_type == 'build_paypal_confirmation_button') {
+
+    $selected_service_code = $_POST['selected_service_code'];
+
+    // get the description and price for the selected service
+
+    $sql = "SELECT 
+                service_description,
+                service_price
+            FROM ecommerce_shop_services
+            WHERE 
+                shop_code = '$shop_code' AND
+                service_code = '$selected_service_code';";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 4. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $row = mysqli_fetch_array($result, MYSQLI_BOTH);
+    $service_description = $row['service_description'];
+    $service_price = $row['service_price'];
+
+    $return = "
+    <strong>$service_description<br> £$service_price<br></strong>";
+
+    if ($shop_code == 1) {
+        $return .= "        
+    <form action = 'https://www.sandbox.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'> 
+        <input type = 'hidden' name = 'business' value = '$paypal_business_address'> 
+        <input type = 'hidden' name = 'notify_url' value = '" . $source_root . "booker_shared_code/listener_sandbox.php'>";
+    } else {
+        $return .= "   
+    <form action = 'https://www.paypal.com/cgi-bin/webscr' method = 'post' target = '_top'> 
+        <input type = 'hidden' name = 'business' value = '$paypal_business_address'> 
+        <input type = 'hidden' name = 'notify_url' value = '" . $source_root . "booker_shared_code/listener.php'>";
+    }
+
+    $return .= " 
+        <input type = 'hidden' name = 'cmd' value = '_xclick'>
+        <input type = 'hidden' name = 'item_name' value = '$service_description'>
+        <input type = 'hidden' name = 'amount' value = '$service_price'>
+        <input type = 'hidden' name = 'currency_code' value = 'GBP'>
+        <input id = 'papypalbookeremail' type = 'hidden' NAME='email'>
+        <input id = 'paypalcustomvariable' type = 'hidden' name = 'custom'>
+        <input id = 'paypalreturn' type = 'hidden' name = 'return' value = 'https://$shop_url/index.php?mode=paypalreturn'> 
+        <input type = 'image' src='https://www.paypalobjects.com/webstatic/en_US/i/buttons/pp-acceptance-large.png' alt = 'PayPal Acceptance' border = '0' name = 'submit'>
+    </form>";
+
+    echo $return;
+}
 
 #####################  'build_calendar_month_display' ####################
 
@@ -98,7 +290,6 @@ if ($helper_type == 'build_calendar_month_display') {
     $year = $_POST['year'];
     $month = $_POST['month'];
     $mode = $_POST['mode'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
     $min_chair_number = $_POST['min_chair_number'];
     $max_chair_number = $_POST['max_chair_number'];
 
@@ -113,24 +304,35 @@ if ($helper_type == 'build_calendar_month_display') {
         $sql = "SELECT 
                 chair_number,
                 chair_owner
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code';";
 
         $result = mysqli_query($con, $sql);
 
         if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 1. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            echo "Oops - database access %failed%. $page_title Loc 5. Error details follow<br><br> " . mysqli_error($con);
+            disconnect();
             exit(1);
         }
 
-        $return = "<form style = 'margin-bottom: 1em;'>
-                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Preferred Barber : </label>
+        if ($mode == "viewer") {
+            $return = "<form style = 'margin-bottom: 1em;'>
+                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Selected Stylist : </label>
                 <select id='stylistmonthpicklist' onchange = 'handleStylistChangeOnMonthDisplay($year, $month);'>";
-
-        if ($min_chair_number != $max_chair_number) {
-            $return .= "<option selected value = '0'>Any</option>";
+            if ($min_chair_number != $max_chair_number) {
+                $return .= "<option selected value = '0'>All</option>";
+            } else {
+                $return .= "<option value = '0'>All</option>";
+            }
         } else {
-            $return .= "<option value = '0'>Any</option>";
+            $return = "<form style = 'margin-bottom: 1em;'>
+                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Preferred Stylist : </label>
+                <select id='stylistmonthpicklist' onchange = 'handleStylistChangeOnMonthDisplay($year, $month);'>";
+            if ($min_chair_number != $max_chair_number) {
+                $return .= "<option selected value = '0'>Any</option>";
+            } else {
+                $return .= "<option value = '0'>Any</option>";
+            }
         }
 
         while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
@@ -153,7 +355,7 @@ if ($helper_type == 'build_calendar_month_display') {
     $length_of_month = date("t", strtotime("$year-$month"));
 
     $return .= '<p>Availability for <strong>' . $month_name_array[$month - 1] . '</strong> ' . $year . '</p>
-                    <p><img style="height: 1.25em;" src = "img/media-stop-green.svg"> = days with free slots</p>';
+                    <p><span style="font-size: 1.25em; color: aquamarine; background: aquamarine;">&#9744</span> = days with free slots</p>';
 
     $return .= '
     <table class="table" style="border-collapse: separate; border-spacing: .5vw;">
@@ -234,7 +436,6 @@ if ($helper_type == 'build_calendar_day_display') {
     $month = $_POST['month'];
     $day = $_POST['day'];
     $mode = $_POST['mode'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
     $min_chair_number = $_POST['min_chair_number'];
     $max_chair_number = $_POST['max_chair_number'];
 
@@ -243,24 +444,37 @@ if ($helper_type == 'build_calendar_day_display') {
     $sql = "SELECT 
                 chair_number,
                 chair_owner
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 2. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 6. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
-    $return = "<form style='margin-bottom: 1em;'>
-                <label for='stylistdaypicklist' name='stylistdaypicklist'>Preferred Barber : </label>
+    if ($mode == "viewer") {
+        $return = "<form style='margin-bottom: 1em;'>
+                <label for='stylistdaypicklist' name='stylistdaypicklist'>Selected Stylist : </label>
                 <select id='stylistdaypicklist' onchange = 'handleStylistChangeOnDayDisplay($year, $month, $day);'>";
 
-    if ($min_chair_number != $max_chair_number) {
-        $return .= "<option selected value = '0'>Any</option>";
+        if ($min_chair_number != $max_chair_number) {
+            $return .= "<option selected value = '0'>All</option>";
+        } else {
+            $return .= "<option value = '0'>All</option>";
+        }
     } else {
-        $return .= "<option value = '0'>Any</option>";
+        $return = "<form style='margin-bottom: 1em;'>
+                <label for='stylistdaypicklist' name='stylistdaypicklist'>Preferred Stylist : </label>
+                <select id='stylistdaypicklist' onchange = 'handleStylistChangeOnDayDisplay($year, $month, $day);'>";
+
+        if ($min_chair_number != $max_chair_number) {
+            $return .= "<option selected value = '0'>Any</option>";
+        } else {
+            $return .= "<option value = '0'>Any</option>";
+        }
     }
 
     while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
@@ -308,16 +522,16 @@ if ($helper_type == 'build_calendar_day_display') {
     $post_year = $datetime->format("Y");
 
     $return .= '<p><button onclick = "displayDay(' . $pre_year . ',' . $pre_month . ',' . $pre_day . ')">
-                        <img src="img/caret-left.svg">
+                        <span class="oi oi-caret-left"></span>
                     </button>&nbsp;
-                    Availability : ' . date("D", $date) . " " . date("j", $date) . date("S", $date) . " " . date("M", $date) . " " . $year . '&nbsp;
+                    Avblty : ' . date("D", $date) . " " . date("j", $date) . date("S", $date) . " " . date("M", $date) . " " . $year . '&nbsp;
                     <button onclick = "displayDay(' . $post_year . ',' . $post_month . ',' . $post_day . ')">
-                        <img src="img/caret-right.svg">
+                        <span class="oi oi-caret-right"></span>
                     </button
                 </p> 
-                <p><img  style="height: 1.25em;" src = "img/media-stop-green.svg"> - avble
-                       <img style = "height: 1.25em; margin-left: 2em;" src = "img/media-stop-partial-green.svg"> - limited
-                       <img style = "height: 1.25em; margin-left: 2em;" src = "img/media-stop-red.svg"> - unavble
+                <p><span style="font-size: 1.25em; color: aquamarine; background: aquamarine;">&#9744;</span> - avble
+                       <span style="font-size: 1.25em; color: palegreen; background: palegreen;">&#9744;</span> - limited
+                       <span style="font-size: 1.25em; color: red; background: red;">&#9744;</span> - unavble
                     </p>';
 
     $return .= '
@@ -421,10 +635,11 @@ if ($helper_type == 'insert_reservation') {
     $reservation_slot = $_POST['reservation_slot'];
     $reserver_id = $_POST['reserver_id'];
     $mode = $_POST['mode'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
 
     $min_chair_number = $_POST['min_chair_number'];
     $max_chair_number = $_POST['max_chair_number'];
+
+    $selected_service_code = $_POST['selected_service_code'];
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
@@ -450,8 +665,8 @@ if ($helper_type == 'insert_reservation') {
 
     $result = mysqli_query($con, $sql);
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 8. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 7. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
@@ -459,7 +674,10 @@ if ($helper_type == 'insert_reservation') {
 
 // check the continued availability for this slot  
 
-    $requested_chair_number = '';
+    if ($min_chair_number == $max_chair_number) {
+        $requested_chair_number = $min_chair_number;
+    }
+
     $results_array = assign_chair($reservation_slot, $day, $requested_chair_number, $min_chair_number, $max_chair_number);
     $chair_expressly_chosen = $results_array[0];
     $assigned_chair_number = $results_array[1];
@@ -468,15 +686,18 @@ if ($helper_type == 'insert_reservation') {
 
     $sql = "INSERT INTO ecommerce_reservations (
                 reservation_date,
+                shop_code,
                 reservation_slot,
                 reservation_status,
                 reserver_id,
                 reservation_type,
                 assigned_chair_number,
                 chair_expressly_chosen,
+                service_code,
                 reservation_time_stamp)
             VALUES (
                 '$reservation_date', 
+                '$shop_code',
                 '$reservation_slot',";
 
     if ($mode == "email") {
@@ -488,14 +709,15 @@ if ($helper_type == 'insert_reservation') {
     $sql .= "'$reserver_id',
                 '$mode',
                 '$assigned_chair_number',
-                '$chair_expressly_chosen',    
+                '$chair_expressly_chosen', 
+                '$selected_service_code',
                 '$reservation_time_stamp');";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 9. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 8. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
@@ -509,8 +731,8 @@ if ($helper_type == 'insert_reservation') {
 
     $result = mysqli_query($con, $sql);
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 10. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 9. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
     echo $reservation_number;
@@ -531,7 +753,6 @@ if ($helper_type == 'change_reservation') {
     $day = $_POST['day'];
     $reservation_slot = $_POST['reservation_slot'];
     $mode = $_POST['mode'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
     $min_chair_number = $_POST['min_chair_number'];
     $max_chair_number = $_POST['max_chair_number'];
 
@@ -552,16 +773,19 @@ if ($helper_type == 'change_reservation') {
                 reserver_id,
                 reservation_type,
                 assigned_chair_number,
-                chair_expressly_chosen
+                chair_expressly_chosen,
+                service_code,
+                amount_paid
             FROM ecommerce_reservations
             WHERE
-                reservation_number = '$outgoing_reservation_number';";
+                reservation_number = '$outgoing_reservation_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 12. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 10. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
@@ -572,13 +796,15 @@ if ($helper_type == 'change_reservation') {
     $reservation_type = $row['reservation_type'];
     $assigned_chair_number = $row['assigned_chair_number'];
     $chair_expressly_chosen = $row['chair_expressly_chosen'];
+    $service_code = $row['service_code'];
+    $amount_paid = $row['amount_paid'];
 
     if (($mode == "change" && $reservation_status == "P") ||
             ($mode == "rebook" && $reservation_status == "C")) {
         
     } else {
-        echo "Oops - reservation status %failed%. $page_title Loc 13. mode = $mode, status = $reservation_status";
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - reservation status %failed%. $page_title Loc 11. mode = $mode, status = $reservation_status";
+        disconnect();
         exit(1);
     }
 
@@ -595,26 +821,28 @@ if ($helper_type == 'change_reservation') {
 
     $result = mysqli_query($con, $sql);
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 11. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 12. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
     $sql = "DELETE FROM ecommerce_reservations
             WHERE
-                reservation_number = '$outgoing_reservation_number';";
+                reservation_number = '$outgoing_reservation_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 14. Error details follow<br><br> " . mysqli_error($con);
+        echo "Oops - database access %failed%. $page_title Loc 13. Error details follow<br><br> " . mysqli_error($con);
         $sql = "ROLLBACK;";
         $result = mysqli_query($con, $sql);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
     $sql = "INSERT INTO ecommerce_reservations (
+                shop_code,
                 reservation_date,
                 reservation_slot,
                 reservation_status,
@@ -622,8 +850,11 @@ if ($helper_type == 'change_reservation') {
                 reservation_type,
                 assigned_chair_number,
                 chair_expressly_chosen,
+                service_code,
+                amount_paid,
                 reservation_time_stamp)
             VALUES (
+                '$shop_code',
                 '$reservation_date', 
                 '$reservation_slot',
                 'C',
@@ -631,15 +862,17 @@ if ($helper_type == 'change_reservation') {
                 '$reservation_type',
                 '$assigned_chair_number',
                 '$chair_expressly_chosen',
+                '$service_code',  
+                '$amount_paid',
                 '$reservation_time_stamp')";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 15. Error details follow<br><br> " . mysqli_error($con);
+        echo "Oops - database access %failed%. $page_title Loc 14. Error details follow<br><br> " . mysqli_error($con);
         $sql = "ROLLBACK;";
         $result = mysqli_query($con, $sql);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -652,7 +885,7 @@ if ($helper_type == 'change_reservation') {
     $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
 
     $mailing_address = $reserver_id;
-    $mailing_title = "Your re-booked reservation at " . SHOP_NAME;
+    $mailing_title = "Your re-booked reservation at " . $shop_name;
     $mailing_message = "Thank you for your re-booked reservation. We look forward to seeing you at " .
             $appointment_string .
             ". Your booking reference is " . $reservation_number;
@@ -669,8 +902,8 @@ if ($helper_type == 'change_reservation') {
 
     $result = mysqli_query($con, $sql);
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 16. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 15. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
     echo $reservation_number;
@@ -684,28 +917,28 @@ if ($helper_type == 'build_slot_reservations_display') {
     $month = $_POST['month'];
     $day = $_POST['day'];
     $reservation_slot = $_POST['reservation_slot'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
     build_availability_variables_for_month($year, $month, 1, 10000);
-    
-   // pr($slot_availability_array[$reservation_slot][$day - 1]);
+
+    // pr($slot_availability_array[$reservation_slot][$day - 1]);
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
     $reservation_date = $year . "-" . $month . "-" . $day;
 
 # build html code to display the details of all reservation for the selected slot Start
-# by building a table of chair-owner names.
+# by building tables of chair-owner names and service descriptions/prices
 
     $sql = "SELECT
                 chair_number,
                 chair_owner
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 17. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 16. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
@@ -719,16 +952,43 @@ if ($helper_type == 'build_slot_reservations_display') {
     }
 
     $sql = "SELECT
+                shop_code,
+                service_code,
+                service_description,
+                service_price
+            FROM ecommerce_shop_services
+            WHERE shop_code = '$shop_code';";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 16a. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $services = array();
+
+    while ($row = mysqli_fetch_array($result)) {
+
+        $service_code = $row['service_code'];
+        $services[$service_code]['description'] = $row['service_description'];
+        $services[$service_code]['price'] = $row['service_price'];
+    }
+
+    $sql = "SELECT
                 reservation_number,
                 reservation_status,
                 reserver_id,
                 reservation_type,
                 assigned_chair_number,
+                service_code,
                 reservation_time_stamp
             FROM ecommerce_reservations
             WHERE
                 reservation_date = '$reservation_date' AND
-                reservation_slot = '$reservation_slot'
+                reservation_slot = '$reservation_slot' AND
+                shop_code = '$shop_code'
             ORDER BY 
                 assigned_chair_number ASC;";
 
@@ -742,7 +1002,7 @@ if ($helper_type == 'build_slot_reservations_display') {
             $reservation_time = floor($reservation_slot / $number_of_slots_per_hour) . ":" . ($reservation_slot % $number_of_slots_per_hour) * $slot_length;
         }
 
-        $return = "<p style='padding-top: .5em;'>Reservations for $reservation_time on $year-$month-$day</p>";
+        $return = "<p style='padding-top: 2em;'>Reservations for $reservation_time on $year-$month-$day</p>";
         $count = 0;
 
         while ($row = mysqli_fetch_array($result)) {
@@ -753,11 +1013,12 @@ if ($helper_type == 'build_slot_reservations_display') {
             $reserver_id = $row['reserver_id'];
             $reservation_type = $row['reservation_type'];
             $assigned_chair_number = $row['assigned_chair_number'];
+            $service_code = $row['service_code'];
             $reservation_time_stamp = $row['reservation_time_stamp'];
 
-            $source = "Online Booker (prepaid)";
+            $status = "(prepaid)";
             if ($reservation_type == "telephone")
-                $source = "Telephone Booker (unpaid)";
+                $status = "(due)";
 
             $booking_time_object = strtotime($reservation_time_stamp);
             $booking_time = date('Y-m-d at H:i:s', $booking_time_object);
@@ -766,9 +1027,9 @@ if ($helper_type == 'build_slot_reservations_display') {
 
             $return .= "
                         <strong>Chair $assigned_chair_number : $chair_owner</strong>
-                        <p>Contact details : $reserver_id</p>
+                        <p>Customer Id : $reserver_id</p>
+                        <p>Service : " . $services[$service_code]['description'] . " £" . $services[$service_code]['price'] . " $status</p>
                         <p>Reservation Reference : $reservation_number</p>
-                        <p>Source : $source</p>
                         <p>    
                         <button class='btn btn-primary' onclick = 'rebookReservation(" . $reservation_number . ");'>Re-book Res</button>&nbsp;&nbsp;&nbsp;
                         <button class='btn btn-danger' onclick = 'cancelReservation(" . $reservation_number . ");'>Cancel Res</button>
@@ -776,7 +1037,7 @@ if ($helper_type == 'build_slot_reservations_display') {
         }
     } else {
         echo "Oops - database access %failed%. $page_title Loc 17. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -797,13 +1058,14 @@ if ($helper_type == 'abort_reservation') {
 
     $sql = "DELETE FROM ecommerce_reservations
             WHERE
-                reservation_number = '$reservation_number';";
+                reservation_number = '$reservation_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo "Oops - database access %failed%. $page_title Loc 18. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 }
@@ -819,7 +1081,6 @@ if ($helper_type == 'abort_reservation') {
 if ($helper_type == 'cancel_reservation') {
 
     $reservation_number = $_POST['reservation_number'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
 
     // get details of the reservation
 
@@ -831,14 +1092,15 @@ if ($helper_type == 'cancel_reservation') {
                 reservation_type
             FROM ecommerce_reservations
             WHERE
-                reservation_number = '$reservation_number';";
+                reservation_number = '$reservation_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
 
         echo "Oops - database access %failed%. $page_title Loc 19. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -851,13 +1113,14 @@ if ($helper_type == 'cancel_reservation') {
 
     $sql = "DELETE FROM ecommerce_reservations
             WHERE
-                reservation_number = '$reservation_number';";
+                reservation_number = '$reservation_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo "Oops - database access %failed%. $page_title Loc 20. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -866,7 +1129,7 @@ if ($helper_type == 'cancel_reservation') {
         $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
 
         $mailing_address = $reserver_id;
-        $mailing_title = "Your cancelled reservation at " . SHOP_NAME;
+        $mailing_title = "Your cancelled reservation at " . $shop_name;
         $mailing_message = " 
                         <p>Dear Customer</p>
                         <p>Just to confirm that your reservation at $appointment_string has been cancelled at your request</p>";
@@ -887,13 +1150,14 @@ if ($helper_type == 'delete_unconfirmed_reservations') {
     $sql = "DELETE FROM ecommerce_reservations
             WHERE
                 reservation_time_stamp < DATE_SUB(NOW(),INTERVAL 60 MINUTE) AND
-                reservation_status = 'U'";
+                reservation_status = 'U' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo "Oops - database access %failed%. $page_title Loc 21. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 }
@@ -909,7 +1173,7 @@ if ($helper_type == 'build_bank_holiday_table_for_month_display') {
 
     $return1 = '<p>Bank Holiday settings for ' . $month_name_array[$month - 1] . ' ' . $year . '</p>
         <p style = "margin-top: .5em;">Click to set/unset Bank Holiday days</p>';
-    $return2 = '<p><img style="height: 1.25em; margin-left: 2em; " src = "img/media-stop-red.svg"> = Bank Holidays</p>';
+    $return2 = '<p><span style="font-size: 1.25em; color: red; background: red;">&#9744</span> = Bank Holidays</p>';
 
     $return2 .= '
     <table class="table" style="border-collapse: separate; border-spacing: .5vw; ">
@@ -932,13 +1196,14 @@ if ($helper_type == 'build_bank_holiday_table_for_month_display') {
             FROM ecommerce_bank_holidays
             WHERE 
                 bank_holiday_year = '$year' AND
-                bank_holiday_month = '$month';";
+                bank_holiday_month = '$month' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo("Oops - database access %failed%. $page_title Loc 22. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -989,7 +1254,7 @@ if ($helper_type == 'build_bank_holiday_table_for_month_display') {
     $return2 .= '
             </tbody>
         </table>
-        <button id = "advancemonth" style="margin-bottom: 1em;" onclick = "advanceMonthDisplay();"><img src = "img/caret-bottom.svg"></button>';
+        <button id = "advancemonth" style="margin-bottom: 1em;" onclick = "advanceMonthDisplay();"><span class="oi oi-caret-bottom"></span></button>';
 
 // wrap the two returns up in a json
 
@@ -1017,13 +1282,14 @@ if ($helper_type == "toggle_bank_holiday") {
             WHERE
                 bank_holiday_year = '$bank_holiday_year' AND
                 bank_holiday_month = '$bank_holiday_month'AND
-                bank_holiday_day = '$bank_holiday_day';";
+                bank_holiday_day = '$bank_holiday_day' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo("Oops - database access %failed%. $page_title Loc 23. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -1035,22 +1301,25 @@ if ($helper_type == "toggle_bank_holiday") {
                     WHERE
                 bank_holiday_year = '$bank_holiday_year' AND
                 bank_holiday_month = '$bank_holiday_month'AND
-                bank_holiday_day = '$bank_holiday_day';";
+                bank_holiday_day = '$bank_holiday_day' AND
+                shop_code = '$shop_code';";
 
         $result = mysqli_query($con, $sql);
 
         if (!$result) {
             echo("Oops - database access %failed%. $page_title Loc 24. Error details follow<br><br> " . mysqli_error($con));
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            disconnect();
             exit(1);
         }
     } else {
 
         $sql = "INSERT INTO ecommerce_bank_holidays (
+                shop_code,
                 bank_holiday_year,
                 bank_holiday_month,
                 bank_holiday_day)
             VALUES (
+                '$shop_code',
                 '$bank_holiday_year',
                 '$bank_holiday_month',
                 '$bank_holiday_day');";
@@ -1059,7 +1328,7 @@ if ($helper_type == "toggle_bank_holiday") {
 
         if (!$result) {
             echo("Oops - database access %failed%. $page_title Loc 25. Error details follow<br><br> " . mysqli_error($con));
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            disconnect();
             exit(1);
         }
     }
@@ -1081,13 +1350,14 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
     $sql = "SELECT 
                 chair_owner,
                 chair_number
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo("Oops - database access %failed%. $page_title Loc 31. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo("Oops - database access %failed%. $page_title Loc 26. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
         exit(1);
     }
 
@@ -1123,13 +1393,13 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
     $length_of_month = date("t", strtotime("$year-$month"));
 
     $return1 = '<p>Staff Absence settings for ' . $month_name_array[$month - 1] . ' ' . $year . '.</p> 
-                <button onclick = "buildStaffHolidayDisplay(' . $year . ',' . $month . ',' . $preceding_chair_number . ');"><img src = "img/caret-left.svg"></button>&nbsp;
+                <button onclick = "buildStaffHolidayDisplay(' . $year . ',' . $month . ',' . $preceding_chair_number . ');"><span class="oi oi-caret-left"></span></button>&nbsp;
                 <span id = "staffholidaychairnum">' . $chair_number . '</span>&nbsp;
-                <button onclick = "buildStaffHolidayDisplay(' . $year . ',' . $month . ',' . $next_chair_number . ');"><img src = "img/caret-right.svg"></button> : 
+                <button onclick = "buildStaffHolidayDisplay(' . $year . ',' . $month . ',' . $next_chair_number . ');"><span class="oi oi-caret-right"></span></button> : 
                 <span>' . $chair_owner . '</span>
                 <p style = "margin-top: .5em;">Click to set/unset Holidays</p>';
 
-    $return2 = '<p><img style="height: 1.25em; margin-left: 2em; " src = "img/media-stop-red.svg"> = Staff Absences</p>';
+    $return2 = '<p><span style="font-size: 1.25em; color: red; background: red;">&#9744</span> = Staff Absences</p>';
 
     $return2 .= '
     <table class="table" style="border-collapse: separate; border-spacing: .5vw; ">
@@ -1153,13 +1423,14 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
             WHERE 
                 staff_holiday_year = '$year' AND
                 staff_holiday_month = '$month' AND
-                chair_number = '$chair_number';";
+                chair_number = '$chair_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo("Oops - database access %failed%. $page_title Loc 27. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -1212,7 +1483,7 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
     $return2 .= '
             </tbody>
         </table>
-        <button id = "advancemonth" style="margin-bottom: 1em;" onclick = "advanceMonthDisplay();"><img src = "img/caret-bottom.svg"></button>';
+        <button id = "advancemonth" style="margin-bottom: 1em;" onclick = "advanceMonthDisplay();"><span class="oi oi-caret-bottom"></span></button>';
 
 // wrap the two returns up in a json
 
@@ -1230,67 +1501,68 @@ if ($helper_type == 'build_staff_holiday_table_for_month_display') {
 
 if ($helper_type == "toggle_staff_holiday") {
 
-    if (logged_in("staffholiday")) {
+    $staff_holiday_year = $_POST['staff_holiday_year'];
+    $staff_holiday_month = $_POST['staff_holiday_month'];
+    $staff_holiday_day = $_POST['staff_holiday_day'];
+    $chair_number = $_POST['chair_number'];
 
-        $staff_holiday_year = $_POST['staff_holiday_year'];
-        $staff_holiday_month = $_POST['staff_holiday_month'];
-        $staff_holiday_day = $_POST['staff_holiday_day'];
-        $chair_number = $_POST['chair_number'];
-
-        $sql = "SELECT COUNT(*)
+    $sql = "SELECT COUNT(*)
             FROM ecommerce_staff_holidays
             WHERE
                 staff_holiday_year = '$staff_holiday_year' AND
                 staff_holiday_month = '$staff_holiday_month' AND
                 staff_holiday_day = '$staff_holiday_day'AND
-                chair_number = '$chair_number';";
+                chair_number = '$chair_number' AND
+                shop_code = '$shop_code';";
 
-        $result = mysqli_query($con, $sql);
+    $result = mysqli_query($con, $sql);
 
-        if (!$result) {
-            echo("Oops - database access %failed%. $page_title Loc 28. Error details follow<br><br> " . mysqli_error($con));
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
+    if (!$result) {
+        echo("Oops - database access %failed%. $page_title Loc 28. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
+        exit(1);
+    }
 
-        $row = mysqli_fetch_array($result);
+    $row = mysqli_fetch_array($result);
 
-        if ($row['COUNT(*)'] == 1) {
+    if ($row['COUNT(*)'] == 1) {
 
-            $sql = "DELETE FROM ecommerce_staff_holidays
+        $sql = "DELETE FROM ecommerce_staff_holidays
                     WHERE
                 staff_holiday_year = '$staff_holiday_year' AND
                 staff_holiday_month = '$staff_holiday_month' AND
                 staff_holiday_day = '$staff_holiday_day'AND
-                chair_number = '$chair_number';";
+                chair_number = '$chair_number' AND
+                shop_code = '$shop_code';";
 
-            $result = mysqli_query($con, $sql);
+        $result = mysqli_query($con, $sql);
 
-            if (!$result) {
-                echo("Oops - database access %failed%. $page_title Loc 29. Error details follow<br><br> " . mysqli_error($con));
-                require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                exit(1);
-            }
-        } else {
+        if (!$result) {
+            echo("Oops - database access %failed%. $page_title Loc 29. Error details follow<br><br> " . mysqli_error($con));
+            disconnect();
+            exit(1);
+        }
+    } else {
 
-            $sql = "INSERT INTO ecommerce_staff_holidays (
+        $sql = "INSERT INTO ecommerce_staff_holidays (
+                shop_code,
                 staff_holiday_year,
                 staff_holiday_month,
                 staff_holiday_day,
                 chair_number)
             VALUES (
+                '$shop_code',
                 '$staff_holiday_year',
                 '$staff_holiday_month',
                 '$staff_holiday_day',
                 '$chair_number');";
 
-            $result = mysqli_query($con, $sql);
+        $result = mysqli_query($con, $sql);
 
-            if (!$result) {
-                echo("Oops - database access %failed%. $page_title Loc 30. Error details follow<br><br> " . mysqli_error($con));
-                require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                exit(1);
-            }
+        if (!$result) {
+            echo("Oops - database access %failed%. $page_title Loc 30. Error details follow<br><br> " . mysqli_error($con));
+            disconnect();
+            exit(1);
         }
     }
 }
@@ -1300,7 +1572,6 @@ if ($helper_type == "toggle_staff_holiday") {
 if ($helper_type == 'build_work_pattern_table_for_week_display') {
 
     $chair_number = $_POST['chair_number'];
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
 
     $slot_length = 60 / $number_of_slots_per_hour;
 
@@ -1314,13 +1585,14 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
                 chair_number,
                 pattern_json
             FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code'
             ORDER BY chair_number ASC;";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
         echo("Oops - database access %failed%. $page_title Loc 31. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -1373,26 +1645,30 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
 
     $return1 = '
             <p>
-                <img src = "img/minus.svg" style="position: absolute; left: 10%; height: 25px;"
+                <button style="position: absolute; left: 10%;"
                   title = "Delete chair"
                   onclick = "prepareToDeleteChair(' . $chair_number . ');">
-                <span>Standard weekly work-patterns for Chair : </span>
-                <img src = "img/plus.svg" style="position: absolute; right: 10%; height: 25px;"
+                    <span class="oi oi-minus"></span>    
+                </button>
+                <button style="position: absolute; right: 10%;"
                   title = "Add new chair"
                   onclick = "document.getElementById(\'createnewchairdisplay\').style.display = \'block\';
                              document.getElementById(\'newchairnumbermessage\').style.display = \'none\';">
+                    <span class="oi oi-plus"></span>                   
+                </button>
+                <span>Standard weekly <br>patterns for Chair : </span>            
             </p>
                 <button onclick = "buildPatternDisplay(' . $preceding_chair_number . ');" >
-                    <img src = "img/caret-left.svg">
+                    <span class="oi oi-caret-left"></span>
                 </button>&nbsp;
                 <span id = "staffholidaychairnum">' . $chair_number . '</span>&nbsp;
                 <button onclick = "buildPatternDisplay(' . $next_chair_number . ');">
-                    <img src = "img/caret-right.svg">
+                    <span class="oi oi-caret-right"></span>
                 </button>
                 <span>&nbsp;&nbsp;:&nbsp;&nbsp;<span>
                 <input id="currentchairowner" type="text" name="currentchairowner"
                    value = "' . $chair_owner . '"
-                   style = "height: 2em; text-align: center; font-weight: bold; background: aliceblue; margin-top: 1em;" 
+                   style = "height: 2.5em; text-align: center; font-weight: bold; background: aliceblue; margin-top: 1em;" 
                    maxlength="20" size="10">
             <p style="margin-top: 1em;">
                 <span>Click to set/unset slots</span><br>
@@ -1443,7 +1719,7 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
 
 // wrap the returns up in yet another json
 
-    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2. '", "return3": "' . $chair_number . '"}</returns>';
+    $json_string = '<returns>{"return1": "' . $return1 . '", "return2": "' . $return2 . '", "return3": "' . $chair_number . '"}</returns>';
 
     header("Content-type: text/xml");
     echo "<?xml version='1.0' encoding='UTF-8'?>";
@@ -1454,26 +1730,24 @@ if ($helper_type == 'build_work_pattern_table_for_week_display') {
 
 if ($helper_type == "save_pattern") {
 
-    if (logged_in("pattern")) {
+    $chair_number = $_POST['chair_number'];
+    $chair_owner = $_POST['chair_owner'];
+    $pattern_json = $_POST['pattern_json'];
 
-        $chair_number = $_POST['chair_number'];
-        $chair_owner = $_POST['chair_owner'];
-        $pattern_json = $_POST['pattern_json'];
-
-        $sql = "UPDATE ecommerce_work_patterns SET
+    $sql = "UPDATE ecommerce_work_patterns SET
                     chair_owner = '$chair_owner',
                     pattern_json = '$pattern_json'
-            WHERE
-                chair_number = '$chair_number';";
+                WHERE
+                    chair_number = '$chair_number' AND
+                    shop_code = '$shop_code';";
 
-        $result = mysqli_query($con, $sql);
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 33. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        } else {
-            echo "Save succeeded";
-        }
+    $result = mysqli_query($con, $sql);
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 32. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    } else {
+        echo "Save succeeded";
     }
 }
 
@@ -1481,40 +1755,38 @@ if ($helper_type == "save_pattern") {
 
 if ($helper_type == "prepare_to_delete_chair") {
 
-    if (logged_in("pattern")) {
+    $chair_number = $_POST['chair_number'];
 
-        $chair_number = $_POST['chair_number'];
+    $today = date("Y-m-d");
 
-        $today = date("Y-m-d");
+    // see if there are any reservations for the given chair and use this to construct an
+    // appropriate message to ask users to confirm they really want to delete thechair
 
-        // see if there are any reservations for the given chair and use this to construct an
-        // appropriate message to ask users to confirm they really want to delete thechair
-
-        $sql = "SELECT 
+    $sql = "SELECT 
                  COUNT(*)
             FROM ecommerce_reservations
             WHERE 
                 assigned_chair_number = '$chair_number' AND
-                reservation_date >= '$today';";
+                reservation_date >= '$today' AND
+                shop_code = '$shop_code';";
 
-        $result = mysqli_query($con, $sql);
+    $result = mysqli_query($con, $sql);
 
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 33a. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 33. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
 
-        $row = mysqli_fetch_array($result);
-        $count = $row['COUNT(*)'];
+    $row = mysqli_fetch_array($result);
+    $count = $row['COUNT(*)'];
 
-        echo "Do you really want to delete chair_number $chair_number? ";
+    echo "Do you really want to delete chair_number $chair_number? ";
 
-        if ($count == 0) {
-            echo "(There are no upcoming reservations for this chair)";
-        } else {
-            echo "(There are $count upcoming reservations for this chair)";
-        }
+    if ($count == 0) {
+        echo "(There are no upcoming reservations for this chair)";
+    } else {
+        echo "(There are $count upcoming reservations for this chair)";
     }
 }
 
@@ -1522,141 +1794,140 @@ if ($helper_type == "prepare_to_delete_chair") {
 
 if ($helper_type == "delete_chair") {
 
-    if (logged_in("pattern")) {
+    $chair_number = $_POST['chair_number'];
 
-        $chair_number = $_POST['chair_number'];
+    $sql = "START TRANSACTION;";
 
-        $sql = "START TRANSACTION;";
-
-        $result = mysqli_query($con, $sql);
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 33b. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
-
-        $sql = "DELETE FROM ecommerce_work_patterns
-                WHERE 
-                    chair_number = '$chair_number';";
-
-        $result = mysqli_query($con, $sql);
-
-        if (!$result) {
-            $sql = "ROLLBACK;";
-            $result = mysqli_query($con, $sql);
-            echo "Oops - database access %failed%. $page_title Loc 33c. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
-
-        $sql = "DELETE FROM ecommerce_staff_holidays
-                WHERE 
-                    chair_number = '$chair_number';";
-
-        $result = mysqli_query($con, $sql);
-
-        if (!$result) {
-            $sql = "ROLLBACK;";
-            $result = mysqli_query($con, $sql);
-            echo "Oops - database access %failed%. $page_title Loc 33d. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
-
-        $sql = "DELETE FROM ecommerce_reservations
-                WHERE 
-                    assigned_chair_number = '$chair_number';";
-
-        $result = mysqli_query($con, $sql);
-
-        if (!$result) {
-            $sql = "ROLLBACK;";
-            echo "Oops - database access %failed%. $page_title Loc 33e. Error details follow<br><br> " . mysqli_error($con);
-            $result = mysqli_query($con, $sql);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
-
-        $sql = "COMMIT;";
-
-        $result = mysqli_query($con, $sql);
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 33f. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
-
-        echo "deletion succeeded";
+    $result = mysqli_query($con, $sql);
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 34. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
     }
+
+    $sql = "DELETE FROM ecommerce_work_patterns
+                WHERE 
+                    chair_number = '$chair_number' AND
+                    shop_code = '$shop_code';";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        $sql = "ROLLBACK;";
+        $result = mysqli_query($con, $sql);
+        echo "Oops - database access %failed%. $page_title Loc 35. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $sql = "DELETE FROM ecommerce_staff_holidays
+                WHERE 
+                    chair_number = '$chair_number' AND
+                    shop_code = '$shop_code';";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        $sql = "ROLLBACK;";
+        $result = mysqli_query($con, $sql);
+        echo "Oops - database access %failed%. $page_title Loc 36. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $sql = "DELETE FROM ecommerce_reservations
+                WHERE 
+                    assigned_chair_number = '$chair_number' AND
+                    shop_code = '$shop_code';";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        $sql = "ROLLBACK;";
+        echo "Oops - database access %failed%. $page_title Loc 37. Error details follow<br><br> " . mysqli_error($con);
+        $result = mysqli_query($con, $sql);
+        disconnect();
+        exit(1);
+    }
+
+    $sql = "COMMIT;";
+
+    $result = mysqli_query($con, $sql);
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 38. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    echo "deletion succeeded";
 }
 
 #####################  insert_chair ####################
 
 if ($helper_type == "insert_chair") {
 
-    if (logged_in("pattern")) {
+    $chair_number = $_POST['chair_number'];
+    $chair_owner = $_POST['chair_owner'];
 
-        $chair_number = $_POST['chair_number'];
-        $chair_owner = $_POST['chair_owner'];
+    // check that chair_owner is an integer within valid range
 
-        // check that chair_owner is an integer within valid range
+    if ($chair_number < 1 || $chair_number > 100 || $chair_number - floor($chair_number) > 0) {
+        echo "Invalid chair numberb";
+        exit(0);
+    }
 
-        if ($chair_number < 1 || $chair_number > 100 || $chair_number - floor($chair_number) > 0) {
-            echo "Invalid chair numberb";
-            exit(0);
-        }
+    // now check that there's not already a record for this chair_number
 
-        // now check that there's not already a record for this chair_number
-
-        $sql = "SELECT COUNT(*)
+    $sql = "SELECT COUNT(*)
                 FROM ecommerce_work_patterns
                 WHERE 
-                    chair_number = '$chair_number';";
+                    chair_number = '$chair_number' AND
+                    shop_code = '$shop_code';";
 
-        $result = mysqli_query($con, $sql);
+    $result = mysqli_query($con, $sql);
 
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 33g. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 39. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
 
-        $row = mysqli_fetch_array($result);
-        $count = $row['COUNT(*)'];
+    $row = mysqli_fetch_array($result);
+    $count = $row['COUNT(*)'];
 
-        if ($count > 0) {
-            echo "Chair already exists";
-            exit(0);
-        }
+    if ($count > 0) {
+        echo "Chair already exists";
+        exit(0);
+    }
 
-        // insert the record
+    // insert the record
 
-        $pattern_json = '[]';
+    $pattern_json = '[]';
 
-        $sql = "INSERT INTO ecommerce_work_patterns (
+    $sql = "INSERT INTO ecommerce_work_patterns (
+                shop_code,
                 chair_number,
                 chair_owner,
                 pattern_json)
             VALUES (
+                '$shop_code',
                 '$chair_number', 
                 '$chair_owner',
                 '$pattern_json');";
 
-        $result = mysqli_query($con, $sql);
+    $result = mysqli_query($con, $sql);
 
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 33h. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
-        }
-        echo "New chair created";
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 40. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
     }
+    echo "New chair created";
 }
 
 #####################  build_check_display ####################
 
 if ($helper_type == "build_check_display") {
-    $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
     $min_chair_number = $_POST['min_chair_number'];
     $max_chair_number = $_POST['max_chair_number'];
 
@@ -1677,24 +1948,25 @@ if ($helper_type == "build_check_display") {
     $sql = "SELECT 
                 chair_number,
                 chair_owner
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 33a. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 41. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
     $return = "<form style = 'margin-bottom: 1em;'>
-                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Preferred Barber : </label>
+                <label for='stylistmonthpicklist' name='stylistmonthpicklist'>Target Stylist(s) : </label>
                 <select id='stylistmonthpicklist' onchange = 'handleStylistChangeOnCheckDisplay();'>";
 
     if ($min_chair_number != $max_chair_number) {
-        $return .= "<option selected value = '0'>Any</option>";
+        $return .= "<option selected value = '0'>All</option>";
     } else {
-        $return .= "<option value = '0'>Any</option>";
+        $return .= "<option value = '0'>All</option>";
     }
 
     while ($row = mysqli_fetch_array($result, MYSQLI_BOTH)) {
@@ -1830,8 +2102,6 @@ if ($helper_type == "build_check_display") {
 
 if ($helper_type == 'issue_reservation_apologies') {
 
-    if (logged_in("check")) {
-
 // This routine messages the first "email" booker for each over-booked slots in a given date range. The email
 // tells the customer that due to circumstances etc you can't fulfill their reservation. If the compromised slot
 // isn't for a "expressly-chosen" stylist, there's the possibility that another stylist might be available
@@ -1849,168 +2119,169 @@ if ($helper_type == 'issue_reservation_apologies') {
 // on their reservation entry in the check  list.
 // Get the JSON containing the list of compromised slots
 
-        $slot_rows_string = $_POST['slot_rows'];
-        $number_of_slots_per_hour = $_POST['number_of_slots_per_hour'];
+    $slot_rows_string = $_POST['slot_rows'];
 
-        // Begin by building an array of chair_owner names
+    // Begin by building an array of chair_owner names
 
-        $sql = "SELECT 
+    $sql = "SELECT 
                 chair_number,
                 chair_owner
-            FROM ecommerce_work_patterns;";
+            FROM ecommerce_work_patterns
+            WHERE shop_code = '$shop_code';";
 
-        $result = mysqli_query($con, $sql);
+    $result = mysqli_query($con, $sql);
 
-        if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 2. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-            exit(1);
+    if (!$result) {
+        echo "Oops - database access %failed%. $page_title Loc 42. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $chair_owners = array();
+
+    while ($row = mysqli_fetch_array($result)) {
+
+        $chair_number = $row['chair_number'];
+        $chair_owner = $row['chair_owner'];
+        $chair_owners[$chair_number - 1] = $chair_owner;
+    }
+
+    $slot_rows_array = json_decode($slot_rows_string, true);
+
+    // Go through the slots month-wise, building availability_variable and compromised_slot details for each
+    // month so that we can see all the stylists that are available for each and, with luck, rebook the slot. 
+    // We want the widest possible view of availability, so set min and max chair-number variables to their limits
+
+
+    $min_chair_number = 0;
+    $max_chair_number = 10000;
+
+    $last_month = '';
+    $last_year = '';
+
+    for ($i = 0; $i < count($slot_rows_array); $i++) {
+
+        $reservation_slot = $slot_rows_array[$i]['slot'];
+        $reservation_date = $slot_rows_array[$i]['slotdate'];
+        $reservation_day = date("j", strtotime($reservation_date));
+
+        $current_month = date("n", strtotime($reservation_date));
+        $current_year = date("Y", strtotime($reservation_date));
+
+        if ($current_month != $last_month) {
+
+            build_availability_variables_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
+            build_compromised_slot_array_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
+
+            $last_month = $current_month;
+            $last_year = $current_year;
         }
 
-        $chair_owners = array();
+        // get the reservation that is causing the problem. First find its index in the compromised_slots array
 
-        while ($row = mysqli_fetch_array($result)) {
-
-            $chair_number = $row['chair_number'];
-            $chair_owner = $row['chair_owner'];
-            $chair_owners[$chair_number - 1] = $chair_owner;
+        for ($j = 0; $j < count($compromised_slots_array); $j++) {
+            if ($compromised_slots_array[$j]['slot'] == $reservation_slot && $compromised_slots_array[$j]['date'] == $reservation_date) {
+                $compromised_target_index = $j;
+            }
         }
 
-        $slot_rows_array = json_decode($slot_rows_string, true);
+        $problem_reservation_number = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_number'];
+        $problem_reserver_id = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reserver_id'];
+        $problem_reservation_type = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_type'];
+        $problem_reservation_status = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_status'];
+        $problem_assigned_chair_number = $compromised_slots_array[$compromised_target_index]['reservations'][0]['assigned_chair_number'];
+        $problem_chair_expressly_chosen = $compromised_slots_array[$compromised_target_index]['reservations'][0]['chair_expressly_chosen'];
 
-        // Go through the slots month-wise, building availability_variable and compromised_slot details for each
-        // month so that we can see all the barbers that are available for each and, with luck, rebook the slot. 
-        // We want the widest possible view of availability, so set min and max chair-number variables to their limits
+        if ($problem_reservation_type == "email") { // if email we're going to send an email (tho not sure what sort yet), otherwise nothing to do
+            // has the booker expressly chosen this sylist?
+            $failed_to_rebook = true;
+            if ($problem_chair_expressly_chosen == "N") { //Ok, there's a chance we can rebook this
+                // is there an unbooked stylist for this slot? If so, switch the problem reservation to this chair and send a mild apology
+                foreach ($slot_availability_array[$reservation_slot][$reservation_day - 1] as $key => $value) {
 
+                    if ($value == "A") { //hooray - can rebook
+                        $failed_to_rebook = false;
+                        $free_chair_number = $key;
 
-        $min_chair_number = 0;
-        $max_chair_number = 10000;
+                        // switch chair to free stylist and send apologetic "rebooked" mail
 
-        $last_month = '';
-        $last_year = '';
-
-        for ($i = 0; $i < count($slot_rows_array); $i++) {
-
-            $reservation_slot = $slot_rows_array[$i]['slot'];
-            $reservation_date = $slot_rows_array[$i]['slotdate'];
-            $reservation_day = date("j", strtotime($reservation_date));
-
-            $current_month = date("n", strtotime($reservation_date));
-            $current_year = date("Y", strtotime($reservation_date));
-
-            if ($current_month != $last_month) {
-
-                build_availability_variables_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
-                build_compromised_slot_array_for_month($current_year, $current_month, $min_chair_number, $max_chair_number);
-
-                $last_month = $current_month;
-                $last_year = $current_year;
-            }
-
-            // get the reservation that is causing the problem. First find its index in the compromised_slots array
-
-            for ($j = 0; $j < count($compromised_slots_array); $j++) {
-                if ($compromised_slots_array[$j]['slot'] == $reservation_slot && $compromised_slots_array[$j]['date'] == $reservation_date) {
-                    $compromised_target_index = $j;
-                }
-            }
-
-            $problem_reservation_number = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_number'];
-            $problem_reserver_id = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reserver_id'];
-            $problem_reservation_type = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_type'];
-            $problem_reservation_status = $compromised_slots_array[$compromised_target_index]['reservations'][0]['reservation_status'];
-            $problem_assigned_chair_number = $compromised_slots_array[$compromised_target_index]['reservations'][0]['assigned_chair_number'];
-            $problem_chair_expressly_chosen = $compromised_slots_array[$compromised_target_index]['reservations'][0]['chair_expressly_chosen'];
-
-            if ($problem_reservation_type == "email") { // if email we're going to send an email (tho not sure what sort yet), otherwise nothing to do
-                // has the booker expressly chosen this sylist?
-                $failed_to_rebook = true;
-                if ($problem_chair_expressly_chosen == "N") { //Ok, there's a chance we can rebook this
-                    // is there an unbooked barber for this slot? If so, switch the problem reservation to this chair and send a mild apology
-                    foreach ($slot_availability_array[$reservation_slot][$reservation_day - 1] as $key => $value) {
-
-                        if ($value == "A") { //hooray - can rebook
-                            $failed_to_rebook = false;
-                            $free_chair_number = $key;
-
-                            // switch chair to free stylist and send apologetic "rebooked" mail
-
-                            $sql = "UPDATE ecommerce_reservations SET
+                        $sql = "UPDATE ecommerce_reservations SET
                                         assigned_chair_number = '$key'
                                     WHERE
-                                        reservation_number = '$problem_reservation_number';";
+                                        reservation_number = '$problem_reservation_number' AND
+                                        shop_code = '$shop_code';";
 
-                            $result = mysqli_query($con, $sql);
-                            if (!$result) {
-                                echo "Oops - database access %failed%. $page_title Loc 36. Error details follow<br><br> " . mysqli_error($con);
-                                require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                                exit(1);
-                            }
+                        $result = mysqli_query($con, $sql);
+                        if (!$result) {
+                            echo "Oops - database access %failed%. $page_title Loc 43. Error details follow<br><br> " . mysqli_error($con);
+                            disconnect();
+                            exit(1);
+                        }
 
-                            $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
+                        $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
 
-                            $mailing_address = $problem_reserver_id;
-                            $mailing_title = "Your reservation at " . SHOP_NAME;
-                            $new_chair_owner = $chair_owners[$key - 1];
-                            $mailing_message = " 
+                        $mailing_address = $problem_reserver_id;
+                        $mailing_title = "Your reservation at " . $shop_name;
+                        $new_chair_owner = $chair_owners[$key - 1];
+                        $mailing_message = " 
                                 <p>Dear Customer</p>
                                 <p>Due to circumstances beyond our control we have had to change the stylist on your reservation
                                    for $appointment_string to $new_chair_owner.
                                    Please accept  our apologies.
                                 </p>";
 
-                            $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
+                        $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
 
-                            // if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
+                        // if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
 
-                            break;
-                        }
+                        break;
                     }
                 }
+            }
 
-                if ($problem_chair_expressly_chosen == "Y" || $failed_to_rebook) { // no good - got to cancel
-                    // switch reservation_status to "P" and send apologetic "cancelled" mail
-                    $sql = "UPDATE ecommerce_reservations SET
+            if ($problem_chair_expressly_chosen == "Y" || $failed_to_rebook) { // no good - got to cancel
+                // switch reservation_status to "P" and send apologetic "cancelled" mail
+                $sql = "UPDATE ecommerce_reservations SET
                                     reservation_status = 'P'
                                 WHERE
-                                    reservation_number = '$problem_reservation_number';";
+                                    reservation_number = '$problem_reservation_number' AND
+                                    shop_code = '$shop_code';";
 
-                    $result = mysqli_query($con, $sql);
-                    if (!$result) {
-                        echo "Oops - database access %failed%. $page_title Loc 36. Error details follow<br><br> " . mysqli_error($con);
-                        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
-                        exit(1);
-                    }
+                $result = mysqli_query($con, $sql);
+                if (!$result) {
+                    echo "Oops - database access %failed%. $page_title Loc 44. Error details follow<br><br> " . mysqli_error($con);
+                    disconnect();
+                    exit(1);
+                }
 
-                    $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
+                $appointment_string = slot_date_to_string($reservation_slot, $reservation_date, $number_of_slots_per_hour);
 
-                    // conventionally would have added a version number paramter here in order to avoid cache problems
-                    // but this isn't available. However we've go a unique reservation number, so should be OK
+                // conventionally would have added a version number paramter here in order to avoid cache problems
+                // but this isn't available. However we've go a unique reservation number, so should be OK
 
-                    $rebookerlink = "your_url/booker/booker.html?mode=change&resnum=$problem_reservation_number"; //**CONFIG REQUIRED**
+                $rebookerlink = "https://" . $shop_url . "/index.php?mode=change&resnum=$problem_reservation_number";
 
-                    $mailing_address = $problem_reserver_id;
-                    $mailing_title = "Your reservation at " . SHOP_NAME;
-                    $mailing_message = " 
+                $mailing_address = $problem_reserver_id;
+                $mailing_title = "Your reservation at " . $shop_name;
+                $mailing_message = " 
                         <p>Dear Customer</p>
                         <p>Due to circumstances beyond our control we are now unable to fufil your reservation 
                             for $appointment_string</p>
                          <p>Please click the following link to choose another time        
                             $rebookerlink" . "</p>";
 
-                    $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
+                $mailing_result = send_email_via_postmark($mailing_address, $mailing_title, $mailing_message);
 
-                    // if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
-                }
+                // if we haven't managed to send a renewal email, just carry on (may just have a duff email address)
             }
         }
-        echo ("successful exit");
     }
+    echo ("successful exit");
 }
 
-#####################  login_with_unencrypted_credentials ####################
+#####################  login_with_user_credentials ####################
 
-if ($helper_type == "login_with_unencrypted_credentials") {
+if ($helper_type == "login_with_user_credentials") {
 
     $user_id = $_POST['user_id'];
     $password = $_POST['password'];
@@ -2020,17 +2291,18 @@ if ($helper_type == "login_with_unencrypted_credentials") {
             FROM ecommerce_user_passwords
             WHERE
                 user_id = '$user_id' AND 
-                password  = '$password';";
+                password  = '$password' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 37. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 45. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
-    $encrypted_credentials = 0;
+    $trusted_user_code = 0;
 
     $row = mysqli_fetch_array($result, MYSQLI_BOTH);
 
@@ -2040,55 +2312,52 @@ if ($helper_type == "login_with_unencrypted_credentials") {
 
         $login_outcome = "succeeded";
 
-        // set the session record "signed-on" parameter 
-
-        session_start();
-        $_SESSION['logged_in'] = "yes";
-
         // now build and encrypted version of the user_id and password. Well, actually
         // we never need to un-encrypt them, so just generate a random number and save
         // it in the record
 
-        $encrypted_credentials = mt_rand(1000000, 2000000);
+        $trusted_user_code = mt_rand(1000000, 2000000);
 
         $sql = "UPDATE ecommerce_user_passwords SET
-                    encrypted_credentials = '$encrypted_credentials'
+                    trusted_user_code = '$trusted_user_code'
                 WHERE
-                    user_id = '$user_id';";
+                    user_id = '$user_id' AND
+                    shop_code = '$shop_code';";
 
         $result = mysqli_query($con, $sql);
         if (!$result) {
-            echo "Oops - database access %failed%. $page_title Loc 38. Error details follow<br><br> " . mysqli_error($con);
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            echo "Oops - database access %failed%. $page_title Loc 46. Error details follow<br><br> " . mysqli_error($con);
+            disconnect();
             exit(1);
         }
     }
 
     // return the outcome and the encrypted_keys value (if you managed to create it) in a jso
 
-    $json_string = '<returns>{"return1": "' . $login_outcome . '", "return2": "' . $encrypted_credentials . '"}</returns>';
+    $json_string = '<returns>{"return1": "' . $login_outcome . '", "return2": "' . $trusted_user_code . '"}</returns>';
 
     header("Content-type: text/xml");
     echo "<?xml version='1.0' encoding='UTF-8'?>";
     echo $json_string;
 }
 
-#####################  login_with_encrypted_credentials ####################
+#####################  login_with_trusted_user_code ####################
 
-if ($helper_type == "login_with_encrypted_credentials") {
+if ($helper_type == "login_with_trusted_user_code") {
 
-    $encrypted_credentials = $_POST['encrypted_credentials'];
+    $trusted_user_code = $_POST['trusted_user_code'];
 
     $sql = "SELECT COUNT(*)
             FROM ecommerce_user_passwords
             WHERE
-                encrypted_credentials = '$encrypted_credentials';";
+                trusted_user_code = '$trusted_user_code' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        echo "Oops - database access %failed%. $page_title Loc 39. Error details follow<br><br> " . mysqli_error($con);
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        echo "Oops - database access %failed%. $page_title Loc 47. Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
         exit(1);
     }
 
@@ -2099,16 +2368,42 @@ if ($helper_type == "login_with_encrypted_credentials") {
     if ($row['COUNT(*)'] == 1) {
 
         $login_outcome = "succeeded";
-
-        // set the session record "signed-on" parameter 
-
-        session_start();
-        $_SESSION['logged_in'] = "yes";
     }
 
     echo $login_outcome;
 }
 
-require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+#####################  validate_trusted_user_code ####################
+
+if ($helper_type == "validate_trusted_user_code") {
+
+    $trusted_user_code = $_POST['trusted_user_code'];
+
+// check $trusted_user_code is valid for this $shop_code
+
+    $sql = "SELECT COUNT(*)
+            FROM ecommerce_user_passwords
+            WHERE
+                shop_code = '$shop_code' AND 
+                trusted_user_code = '$trusted_user_code';";
+
+    $result = mysqli_query($con, $sql);
+
+    if (!$result) {
+        echo "Oops - database access %failed% in $page_title Loc 48. . Error details follow<br><br> " . mysqli_error($con);
+        disconnect();
+        exit(1);
+    }
+
+    $row = mysqli_fetch_array($result, MYSQLI_BOTH);
+
+    if ($row['COUNT(*)'] == 1) {
+        echo "valid";
+    } else {
+        echo "invalid";
+    }
+}
+
+disconnect();
 
 
