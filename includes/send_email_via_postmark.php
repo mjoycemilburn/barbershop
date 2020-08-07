@@ -17,9 +17,9 @@ function send_email_via_postmark($mailing_address, $mailing_title, $mailing_mess
     $mail_result = true;
 
     try {
-        $client = new Postmark\PostmarkClient("your client code"); //**CONFIG REQUIRED**
+        $client = new Postmark\PostmarkClient("postmark_credentials_key"); //**CONFIG REQUIRED** - set this to your postmark client credentials, eg "ghjk.. - 89ll - ...." etc
         $sendResult = $client->sendEmail(
-                "your client email address", $mailing_address, $mailing_title, $mailing_message); //**CONFIG REQUIRED**
+                "postmark_account_address", $mailing_address, $mailing_title, $mailing_message); //**CONFIG REQUIRED** set this to your Postmark a/c address eg myaddress@gmail.com
     } catch (Postmark\Models\PostmarkException $ex) {
         // If client is able to communicate with the API in a timely fashion,
         // but the message data is invalid, or there's a server error,

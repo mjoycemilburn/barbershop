@@ -1,6 +1,6 @@
 <?php
 
-global $number_of_slots_per_hour,
+global
  $con,
  $page_title,
  $logging,
@@ -9,5 +9,6 @@ global $number_of_slots_per_hour,
  $day_availability_array,
  $slot_availability_array,
  $compromised_slots_array,
- $number_of_slots_per_hour;
+ $number_of_slots_per_hour,
+ $shop_code;
 

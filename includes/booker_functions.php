@@ -37,15 +37,19 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
             FROM ecommerce_work_patterns
             WHERE 
                 chair_number >= '$min_chair_number' AND
-                chair_number <= '$max_chair_number';";
+                chair_number <= '$max_chair_number' AND
+                shop_code = '$shop_code';";
 
     $resulta = mysqli_query($con, $sql);
 
     if (!$resulta) {
-        error_log("Oops - database access %failed%. $page_title Loc 3. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        error_log("Oops - database access %failed% in booker_functions loc 1. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
         exit(1);
     }
+
+    $earliest_working_slot = 24 * $number_of_slots_per_hour;
+    $latest_working_slot = 0;
 
     while ($rowa = mysqli_fetch_array($resulta)) {
 
@@ -67,19 +71,16 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
                 pattern_json
             FROM ecommerce_work_patterns
             WHERE 
-               chair_number >= '$min_chair_number' AND
-               chair_number <= '$max_chair_number';";
+               chair_number = '$chair_number' AND
+               shop_code = '$shop_code';";
 
         $resultb = mysqli_query($con, $sql);
 
         if (!$resultb) {
-            error_log("Oops - database access %failed%. $page_title Loc 4. Error details follow<br><br> " . mysqli_error($con));
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            error_log("Oops - database access %failed% in booker_functions loc 2. Error details follow<br><br> " . mysqli_error($con));
+            disconnect();
             exit(1);
         }
-
-        $earliest_working_slot = 24 * $number_of_slots_per_hour;
-        $latest_working_slot = 0;
 
         while ($rowb = mysqli_fetch_array($resultb)) {
             $chair_number = $rowb['chair_number'];
@@ -132,7 +133,7 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
 // $earliest_working_slot and  $latest_working_slot variables as an act of kindness
 // to the build_calendar_day_display routine that will use them to blank out uesles
 // early and late rows from the display
-// Note that "$weekday_pattern_availability " referes to the current chair  
+// Note that "$weekday_pattern_availability" refers to the current chair  
 
         for ($j = 0; $j < 7; $j++) {
             for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
@@ -148,17 +149,18 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
 // now remove availability for whole days due to bank holidays in the given month
 
     $sql = "SELECT
-      bank_holiday_day
-      FROM ecommerce_bank_holidays
-      WHERE
-      bank_holiday_year = '$year' AND
-      bank_holiday_month = '$month';";
+                bank_holiday_day
+            FROM ecommerce_bank_holidays
+            WHERE
+                bank_holiday_year = '$year' AND
+                bank_holiday_month = '$month' AND
+                shop_code= '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        error_log("Oops - database access %failed%. $page_title Loc 5. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        error_log("Oops - database access %failed% in booker_functions loc 3. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
         exit(1);
     }
 
@@ -166,8 +168,8 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
         $bank_holiday_day = $row['bank_holiday_day'];
 
         for ($i = 0; $i < 24 * $number_of_slots_per_hour; $i++) {
-            for ($k = 0; $k < count($slot_availability_array[$i][$bank_holiday_day - 1]); $k++) {
-                unset($slot_availability_array[$i][$bank_holiday_day - 1][$k]);
+            foreach ($slot_availability_array[$i][$bank_holiday_day - 1] as $key => $value) {
+                unset($slot_availability_array[$i][$bank_holiday_day - 1][$key]);
             }
         }
     }
@@ -182,13 +184,14 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
                 staff_holiday_year = '$year' AND
                 staff_holiday_month = '$month' AND
                 chair_number >= '$min_chair_number' AND
-                chair_number <= '$max_chair_number';";
+                chair_number <= '$max_chair_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        error_log("Oops - database access %failed%. $page_title Loc 6. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        error_log("Oops - database access %failed% in booker_functions loc 4. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
         exit(1);
     }
 
@@ -202,8 +205,9 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
         }
     }
 
+
 // Finally, update stylist entries in $slot_availability_array to show which ones are booked
-// Don't count P (postponeds) as their stylists won't be in the array (since they're "absent").
+// Don't count P (postponeds) as stylists for these reservations won't be in the array for the slot.   
 
     $sql = "SELECT
                 assigned_chair_number,
@@ -215,13 +219,14 @@ function build_availability_variables_for_month($year, $month, $min_chair_number
                 reservation_date >= '$year" . "-" . $month . "-01' AND
                 reservation_date <= '$year" . "-" . $month . "-$length_of_month' AND
                 assigned_chair_number >= '$min_chair_number' AND
-                assigned_chair_number <= '$max_chair_number';";
+                assigned_chair_number <= '$max_chair_number' AND
+                shop_code = '$shop_code';";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        error_log("Oops - database access %failed%. $page_title Loc 7. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        error_log("Oops - database access %failed% in booker_functions loc 5. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
         exit(1);
     }
 
@@ -285,8 +290,8 @@ function build_compromised_slot_array_for_month($year, $month, $min_chair_number
     // OK, first run
 
     $compromised_slots_array = array();
-    
-    //ignore "P" status reservations as we've already dealt with them
+
+    //ignore "P" status reservations
 
     $sql = "SELECT
                 reservation_number,
@@ -303,14 +308,15 @@ function build_compromised_slot_array_for_month($year, $month, $min_chair_number
                 reservation_date >= '$year" . "-" . $month . "-01' AND
                 reservation_date <= '$year" . "-" . $month . "-$length_of_month' AND
                 assigned_chair_number >= '$min_chair_number' AND
-                assigned_chair_number <= '$max_chair_number'
+                assigned_chair_number <= '$max_chair_number' AND
+                shop_code = '$shop_code'
             ORDER BY reservation_date, reservation_slot;";
 
     $result = mysqli_query($con, $sql);
 
     if (!$result) {
-        error_log("Oops - database access %failed%. $page_title Loc 31. Error details follow<br><br> " . mysqli_error($con));
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        error_log("Oops - database access %failed% in booker_functions loc 6. Error details follow<br><br> " . mysqli_error($con));
+        disconnect();
         exit(1);
     }
 
@@ -404,14 +410,15 @@ function build_compromised_slot_array_for_month($year, $month, $min_chair_number
                 reservation_slot = '$reservation_slot' AND
                 reservation_number   <> '$problem_reservation_number' AND  
                 assigned_chair_number >= '$min_chair_number' AND
-                assigned_chair_number <= '$max_chair_number'
+                assigned_chair_number <= '$max_chair_number' AND
+                shop_code = '$shop_code'
             ORDER BY reservation_date, reservation_slot;";
 
         $result = mysqli_query($con, $sql);
 
         if (!$result) {
-            error_log("Oops - database access %failed%. $page_title Loc 31. Error details follow<br><br> " . mysqli_error($con));
-            require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+            error_log("Oops - database access %failed% in booker_functions loc 7. Error details follow<br><br> " . mysqli_error($con));
+            disconnect();
             exit(1);
         }
 
@@ -445,9 +452,11 @@ function assign_chair($reservation_slot, $day, $requested_chair_number, $min_cha
 
     // if $min_chair_number =  $max_chair_number, returns $chair_expressly_chosen = "Y" in return[0],
     // otherwise "N"
-    // If $chair_expressly_chosen == "Y", checks the "requested_chair is still available and return
+    // 
+    // If $chair_expressly_chosen == "Y", checks the "requested_chair is still available and returns
     // $requested_chair in return[1], otherwise errors
-    // If $$chair_expressly_chosen == "Y", checks to see that there is still a barber available and
+    // 
+    // If $chair_expressly_chosen == "N", checks to see that there is still a stylist available and
     // returns a chair number at random in return[1],, otherwise errors
 
     require ('../includes/booker_globals.php');
@@ -455,10 +464,16 @@ function assign_chair($reservation_slot, $day, $requested_chair_number, $min_cha
     $chair_expressly_chosen = "N";
     if ($min_chair_number == $max_chair_number) {
         $chair_expressly_chosen = "Y";
-        $assigned_chair_number = $min_chair_number;
+        $requested_chair_number = $min_chair_number;
+        $assigned_chair_number = $requested_chair_number;
     }
 
     $slot_still_free = false;
+
+    //pr($slot_availability_array[36][12]);
+    //pr($chair_expressly_chosen);  
+    //pr($requested_chair_number);
+    //pr($day);
 
     if ($chair_expressly_chosen == "Y") {
 
@@ -486,7 +501,7 @@ function assign_chair($reservation_slot, $day, $requested_chair_number, $min_cha
 
     if (!$slot_still_free) {
         echo "Sorry - this slot has just been booked by another customer - please choose a different slot";
-        require ('/home/qfgavcxt/disconnect_ecommerce_prototype.php');
+        disconnect();
         exit(1);
     }
 
@@ -580,23 +595,20 @@ function slot_date_to_string($slot, $date, $number_of_slots_per_hour) {
     return "$first_bit:$second_bit$ampm on " . date('l jS F Y', strtotime($date));
 }
 
-function logged_in($return) {
+function connect() {
 
-    session_start();
-    if (!isset($_SESSION['logged_in'])) {
+    # Connect to the database
 
-        // probably timed-out - but maybe a hacking attempt.
-        // either way, signal the failure back to booker.html
-        // by echoing a %timed-out% string. This is suffixed by
-        // the value of $return which booker.html can pass, in turn,
-        // back to login.php so that this, in turn, can use it to
-        // get us back to where we started
+    require ('booker_globals.php');
+    require ('hidden_connect_code'); //**CONFIG REQUIRED** - the hidden db connect code at the root of your server  - eg /home/pqrtyu/connect_ecommerce_prototype.php
+}
 
-        echo "%timed-out%" . $return;
-        return false;
-    } else {
-        return true;
-    }
+function disconnect() {
+
+    # Disconnect from the database
+
+    require ('booker_globals.php');
+    require ('hidden_disconnect_code'); //**CONFIG REQUIRED** 
 }
 
 function pr($var) {
