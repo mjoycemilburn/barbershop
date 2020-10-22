@@ -9,12 +9,7 @@ the login_engine.php to set a parameter in the server session record that is che
 everysubsequent php routine. If these routines fail to find a satisfactory value in 
 this parameter they direct control back to the login_engine routine. 
 
-Two issues have meant that, in this instance, this form of security is not applied. The
-first problem is that the structure of the system makes it impractical to use a session
-record in the way described. This is because each shop operates in its own sub-domain, 
-sharing common code in the root domain, and session records cannot be shared 
-between domains. Ways of avoiding this problem might have been found but only at the 
-expense of sacrificing the code-sharing arrangement. The second problem is that  
+In this instance, however, this form of security is not applied. The problem is that  
 session codes are subject to a timeout that means that unattended sessions require another 
 login before they may continue. This might be appropriate for a high-security application 
 but would be excessively tedious and unwelcome in this situation. 
@@ -24,13 +19,15 @@ engine routine will request a user-id and password, as would normally be expecte
 However, once these have been validated against the database, a "trusted user" code 
 is returned and placed in the local storage record. The PC or phone on which the 
 initial login_engine was made now becomes a "trusted device" in the sense that 
-future calls to login_engine will first attempt to validate themselves using the 
+subsequent calls to login_engine will first attempt to validate themselves against the 
 "trusted-user" code - user-Id and password input will only be requested if the 
 "trusted-user" code isn't accepted. While this arrangement isn't ideal it seems a 
-reasonable compromise. Note, however, at any given moment the shop can have only one 
-"trusted device" - a second device, signing on with the correct credentials will take 
-the trusted status from the first and the first will in turn take over the status from
-the second next time it is used. Hopefully this won't cause too much inconvenience.
+reasonable compromise. 
+
+Note, however, at any given moment the shop can have only one "trusted device" - a second 
+device, signing on with the correct credentials will take the trusted status from the first
+and the first will in turn take over the status from the second next time it is used. 
+Hopefully this won't cause too much inconvenience.
 
 -->
 <html>
